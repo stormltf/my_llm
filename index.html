@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My LLM - 从零手搓大语言模型</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            padding: 20px 0;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.8rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .nav-links a {
+            color: #555;
+            text-decoration: none;
+            margin-left: 30px;
+            font-weight: 500;
+            transition: color 0.3s;
+        }
+
+        .nav-links a:hover {
+            color: #667eea;
+        }
+
+        .hero {
+            padding: 120px 0 80px;
+            text-align: center;
+            color: white;
+        }
+
+        .hero h1 {
+            font-size: 3.5rem;
+            margin-bottom: 20px;
+            font-weight: 800;
+            text-shadow: 0 4px 30px rgba(0, 0, 0, 0.2);
+        }
+
+        .hero p {
+            font-size: 1.4rem;
+            opacity: 0.95;
+            max-width: 700px;
+            margin: 0 auto 40px;
+        }
+
+        .cta-button {
+            display: inline-block;
+            background: white;
+            color: #667eea;
+            padding: 16px 40px;
+            border-radius: 50px;
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 1.1rem;
+            transition: transform 0.3s, box-shadow 0.3s;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+        }
+
+        .cta-button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 50px rgba(0, 0, 0, 0.3);
+        }
+
+        .content {
+            background: white;
+            border-radius: 30px 30px 0 0;
+            padding: 80px 0;
+            margin-top: 40px;
+        }
+
+        .section {
+            padding: 60px 0;
+        }
+
+        .section-title {
+            font-size: 2.2rem;
+            text-align: center;
+            margin-bottom: 50px;
+            color: #2d3748;
+            position: relative;
+        }
+
+        .section-title::after {
+            content: '';
+            display: block;
+            width: 60px;
+            height: 4px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 15px auto 0;
+            border-radius: 2px;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 30px;
+        }
+
+        .feature-card {
+            background: #f7fafc;
+            padding: 35px;
+            border-radius: 20px;
+            transition: transform 0.3s, box-shadow 0.3s;
+            border: 1px solid #e2e8f0;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(102, 126, 234, 0.15);
+        }
+
+        .feature-icon {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+            margin-bottom: 20px;
+        }
+
+        .feature-card h3 {
+            font-size: 1.3rem;
+            margin-bottom: 12px;
+            color: #2d3748;
+        }
+
+        .feature-card p {
+            color: #718096;
+            line-height: 1.7;
+        }
+
+        .tech-stack {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 30px;
+        }
+
+        .tech-badge {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 28px;
+            border-radius: 50px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .architecture {
+            background: #2d3748;
+            border-radius: 20px;
+            padding: 40px;
+            color: white;
+        }
+
+        .architecture-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+
+        .architecture-item {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .architecture-item span {
+            display: block;
+            font-size: 1.1rem;
+            font-weight: 500;
+        }
+
+        .usage-section {
+            background: #1a202c;
+            border-radius: 20px;
+            padding: 40px;
+            overflow: hidden;
+        }
+
+        .usage-tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        .usage-tab {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: background 0.3s;
+            font-weight: 500;
+        }
+
+        .usage-tab:hover, .usage-tab.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .code-block {
+            background: #0d1117;
+            border-radius: 12px;
+            padding: 25px;
+            overflow-x: auto;
+        }
+
+        .code-block pre {
+            color: #c9d1d9;
+            font-family: 'Monaco', 'Menlo', monospace;
+            font-size: 0.95rem;
+            line-height: 1.8;
+        }
+
+        .code-block .keyword { color: #ff7b72; }
+        .code-block .string { color: #a5d6ff; }
+        .code-block .comment { color: #8b949e; }
+        .code-block .function { color: #d2a8ff; }
+        .code-block .number { color: #79c0ff; }
+
+        .model-params {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+
+        .param-card {
+            text-align: center;
+            padding: 25px;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+            border-radius: 15px;
+        }
+
+        .param-value {
+            font-size: 2rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .param-label {
+            color: #718096;
+            margin-top: 8px;
+            font-size: 0.95rem;
+        }
+
+        footer {
+            background: #2d3748;
+            color: white;
+            text-align: center;
+            padding: 40px 0;
+            margin-top: 60px;
+        }
+
+        footer p {
+            opacity: 0.8;
+        }
+
+        @media (max-width: 768px) {
+            .hero h1 { font-size: 2.2rem; }
+            .hero p { font-size: 1.1rem; }
+            .nav-links { display: none; }
+            .section-title { font-size: 1.8rem; }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <nav>
+                <div class="logo">My LLM</div>
+                <div class="nav-links">
+                    <a href="#features">功能特性</a>
+                    <a href="#architecture">架构设计</a>
+                    <a href="#usage">快速开始</a>
+                    <a href="#params">模型参数</a>
+                </div>
+            </nav>
+        </div>
+    </header>
+
+    <section class="hero">
+        <div class="container">
+            <h1>从零手搓大语言模型</h1>
+            <p>深入理解 GPT 模型的底层原理，通过亲手实现每个组件，打破对大模型的神秘感。一个适合学习与实践的完整实现。</p>
+            <a href="#usage" class="cta-button">开始探索</a>
+        </div>
+    </section>
+
+    <div class="content">
+        <div class="container">
+            <section id="features" class="section">
+                <h2 class="section-title">核心功能</h2>
+                <div class="features-grid">
+                    <div class="feature-card">
+                        <div class="feature-icon">🔤</div>
+                        <h3>BPE 分词器</h3>
+                        <p>实现完整的 Byte Pair Encoding 分词算法，支持文本的编码和解码，是理解 NLP 预处理的第一步。</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🧠</div>
+                        <h3>自注意力机制</h3>
+                        <p>实现因果自注意力和多头注意力机制，这是 Transformer 架构的核心组件。</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🔄</div>
+                        <h3>Transformer 块</h3>
+                        <p>完整的 Transformer Block 实现，包含 LayerNorm、FeedForward 和 Attention 层。</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🎯</div>
+                        <h3>多种解码策略</h3>
+                        <p>支持贪婪解码、Top-k 采样、Top-p (Nucleus) 采样和温度采样等多种文本生成策略。</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">💬</div>
+                        <h3>交互模式</h3>
+                        <p>提供交互式对话模式，可以与训练好的模型进行实时对话，体验生成式 AI 的魅力。</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">📊</div>
+                        <h3>完整训练流程</h3>
+                        <p>从数据准备、模型训练到检查点保存，提供完整的模型训练流程和日志记录。</p>
+                    </div>
+                </div>
+            </section>
+
+            <section id="architecture" class="section">
+                <h2 class="section-title">项目架构</h2>
+                <div class="architecture">
+                    <div class="architecture-list">
+                        <div class="architecture-item"><span>tokenizer.py</span>BPE 分词器实现</div>
+                        <div class="architecture-item"><span>model.py</span>GPT 模型组件</div>
+                        <div class="architecture-item"><span>train.py</span>模型训练脚本</div>
+                        <div class="architecture-item"><span>generate.py</span>文本生成/推理</div>
+                        <div class="architecture-item"><span>main.py</span>统一入口</div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="section">
+                <h2 class="section-title">技术栈</h2>
+                <div class="tech-stack">
+                    <div class="tech-badge">🔥 PyTorch 2.0+</div>
+                    <div class="tech-badge">📊 NumPy 1.24+</div>
+                    <div class="tech-badge">📈 tqdm 4.65+</div>
+                    <div class="tech-badge">🐍 Python 3.x</div>
+                </div>
+            </section>
+
+            <section id="usage" class="section">
+                <h2 class="section-title">快速开始</h2>
+                <div class="usage-section">
+                    <div class="usage-tabs">
+                        <button class="usage-tab active">安装依赖</button>
+                        <button class="usage-tab">训练模型</button>
+                        <button class="usage-tab">生成文本</button>
+                        <button class="usage-tab">交互对话</button>
+                    </div>
+                    <div class="code-block">
+                        <pre><span class="comment"># 安装依赖</span>
+pip install <span class="string">-r requirements.txt</span>
+
+<span class="comment"># 训练模型</span>
+python main.py train <span class="string">--data</span> data/sample.txt <span class="string">--epochs</span> <span class="number">50</span>
+
+<span class="comment"># 生成文本</span>
+python main.py generate <span class="string">--prompt</span> <span class="string">"Hello, world"</span> <span class="string">--max-length</span> <span class="number">100</span>
+
+<span class="comment"># 交互对话</span>
+python main.py interact <span class="string">--checkpoint</span> checkpoints/checkpoint_epoch_50.pt</span></pre>
+                    </div>
+                </div>
+            </section>
+
+            <section id="params" class="section">
+                <h2 class="section-title">模型参数</h2>
+                <div class="model-params">
+                    <div class="param-card">
+                        <div class="param-value">1000</div>
+                        <div class="param-label">词表大小</div>
+                    </div>
+                    <div class="param-card">
+                        <div class="param-value">256</div>
+                        <div class="param-label">嵌入维度</div>
+                    </div>
+                    <div class="param-card">
+                        <div class="param-value">8</div>
+                        <div class="param-label">注意力头数</div>
+                    </div>
+                    <div class="param-card">
+                        <div class="param-value">6</div>
+                        <div class="param-label">Transformer 层数</div>
+                    </div>
+                    <div class="param-card">
+                        <div class="param-value">256</div>
+                        <div class="param-label">最大上下文长度</div>
+                    </div>
+                    <div class="param-card">
+                        <div class="param-value">0.1</div>
+                        <div class="param-label">Dropout 比例</div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="section">
+                <h2 class="section-title">项目特点</h2>
+                <div class="features-grid">
+                    <div class="feature-card">
+                        <div class="feature-icon">📚</div>
+                        <h3>教育性强</h3>
+                        <p>每个组件都有详细的注释和说明，便于理解每一行代码的作用。</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🧩</div>
+                        <h3>模块化设计</h3>
+                        <p>各组件独立实现，易于理解和扩展，可以单独学习每个部分。</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">🔄</div>
+                        <h3>完整流程</h3>
+                        <p>从数据预处理到模型训练再到文本生成，一应俱全。</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">⚙️</div>
+                        <h3>高度可配置</h3>
+                        <p>所有关键参数都可以通过命令行配置，方便实验不同设置。</p>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <footer>
+        <div class="container">
+            <p>My LLM - 从零手搓大语言模型 | 深入理解 AI 的底层原理</p>
+        </div>
+    </footer>
+
+    <script>
+        // 平滑滚动
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function(e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            });
+        });
+
+        // Tab 切换效果（演示用）
+        document.querySelectorAll('.usage-tab').forEach(tab => {
+            tab.addEventListener('click', function() {
+                document.querySelectorAll('.usage-tab').forEach(t => t.classList.remove('active'));
+                this.classList.add('active');
+            });
+        });
+
+        // 滚动动画
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.opacity = '1';
+                    entry.target.style.transform = 'translateY(0)';
+                }
+            });
+        }, observerOptions);
+
+        document.querySelectorAll('.feature-card, .param-card').forEach(card => {
+            card.style.opacity = '0';
+            card.style.transform = 'translateY(20px)';
+            card.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+            observer.observe(card);
+        });
+    </script>
+</body>
+</html>

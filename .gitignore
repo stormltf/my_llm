@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Model checkpoints and logs
+checkpoints/
+logs/
+*.pt
+*.pth
+*.ckpt
+
+# Generated files
+*.pptx
+slides/
+
+# Data (if large)
+data/
+
+# Node.js (for PPT generation)
+node_modules/
+package-lock.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Virtual environment
+venv/
+.env/
+env/
