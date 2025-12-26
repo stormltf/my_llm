@@ -8,6 +8,7 @@ BPE 是目前最流行的子词分词算法，核心思想是：
 作者：根据《Build a Large Language Model (From Scratch)》实现
 """
 
+import os
 import json
 import re
 from collections import defaultdict
@@ -331,6 +332,171 @@ class BPETokenizer:
     @property
     def bos_token_id(self) -> int:
         return self.special_tokens["<BOS>"]
+
+
+class MyLLMTokenizer(BPETokenizer):
+    """
+    MyLLM 分词器 - 基于 BPE 算法
+
+    这是 BPETokenizer 的封装类，提供更友好的接口，
+    并支持对话格式的特殊 token。
+
+    使用示例：
+    ---------
+    >>> tokenizer = MyLLMTokenizer()
+    >>> tokenizer.build_vocab("训练文本...", max_vocab_size=1000)
+    >>> ids = tokenizer.encode("你好")
+    >>> text = tokenizer.decode(ids)
+    """
+
+    def __init__(self, vocab_path: Optional[str] = None, vocab_size: int = 6400):
+        """
+        初始化分词器
+
+        参数：
+            vocab_path: 词表文件路径（如果提供，则加载已有词表）
+            vocab_size: 目标词表大小（构建新词表时使用）
+        """
+        # 定义特殊 token（包括对话格式）
+        special_tokens = {
+            "<pad>": 0,
+            "<unk>": 1,
+            "<bos>": 2,
+            "<eos>": 3,
+            "<|im_start|>": 4,
+            "<|im_end|>": 5,
+        }
+
+        super().__init__(vocab_size=vocab_size, special_tokens=special_tokens)
+
+        if vocab_path and os.path.exists(vocab_path):
+            self._load_vocab(vocab_path)
+
+    def _load_vocab(self, vocab_path: str):
+        """从 JSON 文件加载词表"""
+        with open(vocab_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+
+        self.vocab = data.get('vocab', {})
+        self.inverse_vocab = {v: k for k, v in self.vocab.items()}
+        self.merges = [tuple(m) for m in data.get('merges', [])]
+        self.next_token_id = len(self.vocab)
+
+        print(f"词表已从 {vocab_path} 加载")
+        print(f"词表大小: {len(self.vocab)}")
+        if self.merges:
+            print(f"BPE 合并规则: {len(self.merges)} 条")
+
+    def build_vocab(self, text: str, max_vocab_size: int = 6400):
+        """
+        从文本构建词表（使用 BPE 算法）
+
+        参数：
+            text: 训练文本
+            max_vocab_size: 最大词表大小
+        """
+        print("=" * 50)
+        print("开始构建词表（BPE 算法）...")
+        print("=" * 50)
+
+        # 重新初始化父类，使用正确的 vocab_size
+        BPETokenizer.__init__(self, vocab_size=max_vocab_size, special_tokens=self.special_tokens)
+
+        # 将文本分割成"词"
+        # BPE 会在词内部寻找可合并的字符对
+        # fit() 方法会将每个词拆分为字符元组，如 "机器" -> ("机", "器")
+        words = []
+        current_word = []
+
+        for char in text:
+            if char in ' \n\t，。？！、：；""''（）【】':
+                # 遇到分隔符，保存当前词
+                if current_word:
+                    # 不添加空格，保持词的完整性
+                    words.append(''.join(current_word))
+                    current_word = []
+            elif char.strip():
+                current_word.append(char)
+
+        # 保存最后一个词
+        if current_word:
+            words.append(''.join(current_word))
+
+        # 构造训练语料格式
+        # 每个词用空格分隔，作为一个句子传入
+        # fit() 会按空格分割，得到各个词，再将每个词拆分为字符
+        corpus = [' '.join(words)]
+
+        print(f"原始文本长度: {len(text)} 字符")
+        print(f"分割成 {len(words)} 个词")
+        if words:
+            print(f"示例词: {words[:5]}")
+
+        # 调用父类的 fit 方法进行 BPE 训练
+        self.fit(corpus, verbose=True)
+
+        print(f"\n词表构建完成！")
+        print(f"最终词表大小: {len(self.vocab)}")
+        print(f"BPE 合并规则: {len(self.merges)} 条")
+        print("=" * 50)
+
+    def save(self, filepath: str):
+        """
+        保存分词器到 JSON 文件
+
+        保存内容包括：
+        - vocab: token 到 ID 的映射
+        - merges: BPE 合并规则
+        - special_tokens: 特殊 token
+        - vocab_size: 词表大小
+        """
+        data = {
+            "vocab": self.vocab,
+            "merges": self.merges,
+            "special_tokens": self.special_tokens,
+            "vocab_size": len(self.vocab)
+        }
+        with open(filepath, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        print(f"词表已保存到: {filepath}")
+
+    def load(self, filepath: str):
+        """加载词表"""
+        self._load_vocab(filepath)
+
+    def get_vocab_size(self) -> int:
+        """返回当前词表大小"""
+        return len(self.vocab)
+
+    @property
+    def im_start_token_id(self) -> int:
+        return self.special_tokens.get("<|im_start|>", 4)
+
+    @property
+    def im_end_token_id(self) -> int:
+        return self.special_tokens.get("<|im_end|>", 5)
+
+
+def create_chinese_vocab(texts: List[str], vocab_size: int = 6400) -> MyLLMTokenizer:
+    """
+    从中文文本创建 BPE 分词器
+
+    参数：
+        texts: 训练文本列表
+        vocab_size: 目标词表大小
+
+    返回：
+        训练好的分词器
+    """
+    tokenizer = MyLLMTokenizer(vocab_size=vocab_size)
+
+    # 合并所有文本
+    all_text = ' '.join(texts)
+
+    # 构建词表
+    tokenizer.build_vocab(all_text, max_vocab_size=vocab_size)
+
+    return tokenizer
 
 
 def demo_tokenizer():
