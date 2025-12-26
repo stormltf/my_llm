@@ -853,48 +853,58 @@ LoRA（Low-Rank Adaptation）是一种高效的模型微调方法，只需训练
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### 使用方法
+### 方式一：使用训练脚本（推荐）
 
 ```bash
-# 基础 LoRA 微调
+# 基础用法 - 使用 SFT 模型进行 LoRA 微调
 python train_lora.py
 
 # 自定义参数
 python train_lora.py \
     --base_model checkpoints/sft_final.pt \
-    --lora_r 16 \
-    --lora_alpha 32 \
-    --epochs 5 \
+    --lora_r 8 \
+    --lora_alpha 16 \
+    --epochs 3 \
     --lr 1e-4
 
-# 指定目标模块（可选：c_attn, c_proj, linear1, linear2）
+# 对更多层使用 LoRA（参数更多，效果可能更好）
 python train_lora.py --target_modules c_attn c_proj linear1 linear2
+
+# 快速测试 LoRA 功能
+python -c "from lora import demo_lora; demo_lora()"
 ```
 
-### 代码示例
+### 方式二：代码中使用
 
 ```python
+import torch
 from model import GPT, GPTConfig
-from lora import LoRAConfig, apply_lora_to_model, save_lora, load_lora
+from lora import LoRAConfig, apply_lora_to_model, save_lora, load_lora, merge_lora
 
-# 1. 创建基础模型
+# 1. 加载基础模型
+config = GPTConfig(vocab_size=2000, emb_dim=256, num_heads=8, num_layers=6)
 model = GPT(config)
 
-# 2. 配置 LoRA
+# 2. 配置并应用 LoRA
 lora_config = LoRAConfig(
-    r=8,                              # 低秩维度
-    alpha=16,                         # 缩放因子
-    dropout=0.05,                     # Dropout
-    target_modules=["c_attn", "c_proj"]  # 目标层
+    r=8,                                # 秩（越大容量越强，参数越多）
+    alpha=16,                           # 缩放因子
+    dropout=0.05,                       # Dropout
+    target_modules=["c_attn", "c_proj"] # 目标层
 )
-
-# 3. 应用 LoRA
 model = apply_lora_to_model(model, lora_config)
 # 输出: 可训练参数 73,728 (1.38%)
 
-# 4. 训练（只有 LoRA 参数会更新）
+# 3. 设置优化器（只优化 LoRA 参数）
+optimizer = torch.optim.AdamW(
+    [p for p in model.parameters() if p.requires_grad],
+    lr=1e-4
+)
+
+# 4. 训练循环
 for input_ids, target_ids in dataloader:
     _, loss = model(input_ids, target_ids)
+    optimizer.zero_grad()
     loss.backward()
     optimizer.step()
 
@@ -905,9 +915,27 @@ save_lora(model, "checkpoints/my_lora")
 new_model = GPT(config)
 new_model = load_lora(new_model, "checkpoints/my_lora")
 
-# 7. 可选：合并权重（推理时更快）
-from lora import merge_lora
-merge_lora(model)  # LoRA 权重合并到原模型，无额外计算开销
+# 7. 推理时合并权重（可选，更快）
+merge_lora(new_model)  # LoRA 权重合并到原模型，无额外计算开销
+```
+
+### 关键参数说明
+
+| 参数 | 说明 | 推荐值 |
+|------|------|--------|
+| `r` | 低秩维度，越大能力越强，参数越多 | 8-16 |
+| `alpha` | 缩放因子，控制 LoRA 的影响程度 | 16-32 (通常 = 2×r) |
+| `dropout` | LoRA 层的 Dropout 比例 | 0.05 |
+| `target_modules` | 应用 LoRA 的层 | `["c_attn", "c_proj"]` |
+
+### 目标模块选择
+
+```python
+# 最小配置（推荐，参数最少，效率最高）
+target_modules = ["c_attn", "c_proj"]  # 只对注意力层
+
+# 完整配置（参数更多，可能效果更好）
+target_modules = ["c_attn", "c_proj", "linear1", "linear2"]  # 注意力 + MLP
 ```
 
 ### LoRA vs 全量微调
@@ -920,16 +948,26 @@ merge_lora(model)  # LoRA 权重合并到原模型，无额外计算开销
 | 存储空间 | 完整模型 | 仅 LoRA 权重 |
 | 多任务 | 每任务一个模型 | 共享基座 + 多个 LoRA |
 
-### 目标模块说明
+### 可用目标模块
 
-| 模块名 | 位置 | 建议 |
-|--------|------|------|
-| `c_attn` | 注意力层 QKV 投影 | ✅ 推荐 |
-| `c_proj` | 注意力层输出投影 | ✅ 推荐 |
-| `linear1` | MLP 第一层 | 可选 |
-| `linear2` | MLP 第二层 | 可选 |
+| 模块名 | 位置 | 参数量 | 建议 |
+|--------|------|--------|------|
+| `c_attn` | 注意力层 QKV 投影 | 大 | ✅ 推荐 |
+| `c_proj` | 注意力层输出投影 | 中 | ✅ 推荐 |
+| `linear1` | MLP 第一层 | 大 | 可选 |
+| `linear2` | MLP 第二层 | 大 | 可选 |
 
 **推荐配置**：只对注意力层使用 LoRA (`c_attn`, `c_proj`)，参数效率最高。
+
+### 训练后的文件
+
+```
+checkpoints/lora/
+├── final/
+│   ├── lora_weights.pt    # LoRA 权重（~300KB）
+│   └── lora_config.json   # LoRA 配置
+└── training_log.json      # 训练日志
+```
 
 ---
 
