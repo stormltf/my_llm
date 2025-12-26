@@ -194,6 +194,33 @@ python3 generate.py --prompt "你好" --greedy
 python3 generate.py --checkpoint checkpoints/sft_final.pt --prompt "你好"
 ```
 
+### 训练后运行模型
+
+训练完成后，可以使用不同阶段的模型进行推理：
+
+```bash
+# 使用预训练模型（只会续写文本，不会对话）
+python3 generate.py --checkpoint checkpoints/pretrain_final.pt --prompt "人工智能"
+
+# 使用 SFT 模型（具备基础对话能力）
+python3 generate.py --interactive --checkpoint checkpoints/sft_final.pt
+
+# 使用 RLHF 模型（回答更符合人类偏好）
+python3 generate.py --interactive --checkpoint checkpoints/rlhf_final.pt
+
+# 使用 RLVF 模型（完整训练，推理能力更强）
+python3 generate.py --interactive --checkpoint checkpoints/rlvf_final.pt
+```
+
+**各阶段模型对比：**
+
+| 模型 | 文件 | 能力 |
+|------|------|------|
+| Pretrain | `pretrain_final.pt` | 续写文本，无对话能力 |
+| SFT | `sft_final.pt` | 基础对话，遵循指令 |
+| RLHF | `rlhf_final.pt` | 回答更自然、更安全 |
+| RLVF | `rlvf_final.pt` | 精确推理能力增强 |
+
 ### 4. 模型验证 (test_model.py)
 
 ```bash
