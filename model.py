@@ -327,6 +327,12 @@ class GPT(nn.Module):
         # 初始化权重（重要！好的初始化能让训练更稳定）
         self.apply(self._init_weights)
 
+        # 兼容性别名（供 reward_model.py 使用）
+        self.token_embedding = self.tok_emb
+        self.position_embedding = self.pos_emb
+        self.transformer_blocks = self.blocks
+        self.final_norm = self.ln_f
+
         print(f"GPT 模型初始化完成，参数量: {self.get_num_params():,}")
 
     def _init_weights(self, module):
@@ -412,6 +418,84 @@ class GPT(nn.Module):
             )
 
         return logits, loss
+
+    def num_parameters(self) -> int:
+        """返回模型参数量（兼容接口）"""
+        return self.get_num_params()
+
+    @torch.no_grad()
+    def generate(
+        self,
+        idx: torch.Tensor,
+        max_new_tokens: int = 50,
+        temperature: float = 1.0,
+        top_k: int = 0,
+        top_p: float = 1.0,
+        eos_token_id: int = None
+    ) -> torch.Tensor:
+        """
+        自回归文本生成
+
+        Args:
+            idx: 输入 token ID 序列，形状 [batch_size, seq_len]
+            max_new_tokens: 最大生成 token 数
+            temperature: 温度参数，控制随机性
+            top_k: 只从概率最高的 k 个 token 中采样
+            top_p: 只从累积概率达到 p 的 token 中采样
+            eos_token_id: 结束 token ID，遇到时停止生成
+
+        Returns:
+            生成的完整序列，形状 [batch_size, seq_len + new_tokens]
+        """
+        self.eval()
+
+        for _ in range(max_new_tokens):
+            # 截断输入，确保不超过上下文长度
+            idx_cond = idx if idx.size(1) <= self.config.context_size else idx[:, -self.config.context_size:]
+
+            # 前向传播
+            logits, _ = self(idx_cond)
+
+            # 取最后一个位置的 logits
+            logits = logits[:, -1, :] / temperature
+
+            # Top-k 采样
+            if top_k > 0:
+                v, _ = torch.topk(logits, min(top_k, logits.size(-1)))
+                logits[logits < v[:, [-1]]] = float('-inf')
+
+            # Top-p (nucleus) 采样
+            if top_p < 1.0:
+                sorted_logits, sorted_indices = torch.sort(logits, descending=True)
+                cumulative_probs = torch.cumsum(F.softmax(sorted_logits, dim=-1), dim=-1)
+
+                # 移除累积概率超过 top_p 的 token
+                sorted_indices_to_remove = cumulative_probs > top_p
+                sorted_indices_to_remove[:, 1:] = sorted_indices_to_remove[:, :-1].clone()
+                sorted_indices_to_remove[:, 0] = 0
+
+                indices_to_remove = sorted_indices_to_remove.scatter(1, sorted_indices, sorted_indices_to_remove)
+                logits[indices_to_remove] = float('-inf')
+
+            # 采样
+            probs = F.softmax(logits, dim=-1)
+            idx_next = torch.multinomial(probs, num_samples=1)
+
+            # 拼接到序列
+            idx = torch.cat((idx, idx_next), dim=1)
+
+            # 检查是否遇到结束 token
+            if eos_token_id is not None and (idx_next == eos_token_id).all():
+                break
+
+        return idx
+
+
+# ==========================================
+# 兼容性别名
+# ==========================================
+# 为了兼容 reward_model.py, rlhf.py, rlvf.py 中的导入
+MyLLM = GPT
 
 
 def demo_model():

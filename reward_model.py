@@ -32,7 +32,7 @@ import json
 from copy import deepcopy
 
 from config import MyLLMConfig
-from model import MyLLM, LayerNorm, TransformerBlock
+from model import MyLLM, LayerNorm, TransformerBlock, GPTConfig
 
 
 class RewardModel(nn.Module):
@@ -81,14 +81,19 @@ class RewardModel(nn.Module):
         # Embedding Dropout
         self.embedding_dropout = nn.Dropout(config.dropout)
 
+        # 创建 GPTConfig 用于 TransformerBlock
+        gpt_config = GPTConfig(
+            vocab_size=config.vocab_size,
+            emb_dim=config.emb_dim,
+            num_heads=config.num_heads,
+            num_layers=config.num_layers,
+            context_size=config.context_size,
+            dropout=config.dropout
+        )
+
         # Transformer Blocks
         self.transformer_blocks = nn.ModuleList([
-            TransformerBlock(
-                emb_dim=config.emb_dim,
-                num_heads=config.num_heads,
-                dropout=config.dropout,
-                context_size=config.context_size
-            )
+            TransformerBlock(gpt_config)
             for _ in range(config.num_layers)
         ])
 

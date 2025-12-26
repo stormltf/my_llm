@@ -254,7 +254,7 @@ class BPETokenizer:
                         if char in self.vocab:
                             token_ids.append(self.vocab[char])
                         else:
-                            token_ids.append(self.special_tokens["<UNK>"])
+                            token_ids.append(self.unk_token_id)
 
         return token_ids
 
@@ -319,19 +319,23 @@ class BPETokenizer:
 
     @property
     def pad_token_id(self) -> int:
-        return self.special_tokens["<PAD>"]
+        # 兼容大小写
+        return self.special_tokens.get("<PAD>", self.special_tokens.get("<pad>", 0))
 
     @property
     def unk_token_id(self) -> int:
-        return self.special_tokens["<UNK>"]
+        # 兼容大小写
+        return self.special_tokens.get("<UNK>", self.special_tokens.get("<unk>", 1))
 
     @property
     def eos_token_id(self) -> int:
-        return self.special_tokens["<EOS>"]
+        # 兼容大小写
+        return self.special_tokens.get("<EOS>", self.special_tokens.get("<eos>", 3))
 
     @property
     def bos_token_id(self) -> int:
-        return self.special_tokens["<BOS>"]
+        # 兼容大小写
+        return self.special_tokens.get("<BOS>", self.special_tokens.get("<bos>", 2))
 
 
 class MyLLMTokenizer(BPETokenizer):

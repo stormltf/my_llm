@@ -71,13 +71,15 @@
 
 ```
 my_llm/
-├── tokenizer.py            # [阶段0] 分词器
+├── tokenizer.py            # [阶段0] BPE 分词器
 ├── model.py                # [模型] Transformer 架构
 ├── config.py               # [配置] 模型和训练参数
 ├── train.py                # [训练] 完整 5 阶段流程
 ├── reward_model.py         # [阶段3] 奖励模型
 ├── rlhf.py                 # [阶段4] RLHF (PPO) 训练器
 ├── rlvf.py                 # [阶段5] RLVF 训练器
+├── lora.py                 # [高效微调] LoRA 实现
+├── train_lora.py           # [高效微调] LoRA 训练脚本
 ├── inference.py            # [推理] 文本生成
 ├── data/
 │   ├── pretrain_data.txt   # 预训练文本
@@ -85,6 +87,7 @@ my_llm/
 │   ├── reward_data.json    # 奖励数据 (40对)
 │   └── rlvf_data.json      # RLVF 任务 (40条)
 └── checkpoints/            # 模型检查点
+    └── vocab.json          # BPE 词表 (含合并规则)
 ```
 
 ---
@@ -142,21 +145,30 @@ python3 verify_setup.py
 ### 2. 模型训练 (train.py)
 
 ```bash
-# 基本训练（默认参数）
+# 完整 5 阶段训练（Pretrain → SFT → Reward Model → RLHF → RLVF）
 python3 train.py
 
+# 跳过特定阶段
+python3 train.py --skip-pretrain              # 跳过预训练
+python3 train.py --skip-pretrain --skip-sft   # 只训练 RL 阶段
+python3 train.py --skip-rlhf --skip-rlvf      # 只训练基础阶段
+
 # 自定义训练参数
-python3 train.py --epochs 100 --batch_size 32 --lr 1e-3
+python3 train.py --pretrain_epochs 10 --sft_epochs 5 --batch_size 32
 
-# 从检查点恢复训练
-python3 train.py --resume --checkpoint_path checkpoints/checkpoint_epoch_50.pt
+# 阶段控制参数：
+#   --skip-pretrain  跳过预训练阶段
+#   --skip-sft       跳过 SFT 阶段
+#   --skip-reward    跳过奖励模型训练
+#   --skip-rlhf      跳过 RLHF 阶段
+#   --skip-rlvf      跳过 RLVF 阶段
 
-# 常用参数说明：
-#   --epochs        训练轮数（默认 10）
-#   --batch_size    批次大小（默认 32）
-#   --lr            学习率（默认 1e-3）
-#   --seq_len       序列长度（默认 64）
-#   --save_every    保存频率（默认每 10 轮）
+# 训练参数：
+#   --pretrain_epochs   预训练轮数（默认 5）
+#   --sft_epochs        SFT 轮数（默认 5）
+#   --rlhf_episodes     RLHF 轮数（默认 50）
+#   --rlvf_iterations   RLVF 迭代次数（默认 30）
+#   --batch_size        批次大小（默认 16）
 ```
 
 ### 3. 文本生成 (generate.py)
@@ -802,12 +814,132 @@ checkpoints/
 
 ---
 
+## 高效微调：LoRA
+
+**文件**：`lora.py`, `train_lora.py`
+
+LoRA（Low-Rank Adaptation）是一种高效的模型微调方法，只需训练不到 2% 的参数即可达到全量微调的效果。
+
+### 核心原理
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                        LoRA 原理                             │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│   原始模型:                                                  │
+│   h = W · x        (W 是预训练权重，参数量大)                 │
+│                                                             │
+│   LoRA 修改:                                                 │
+│   h = W · x + (B · A) · x                                   │
+│       ─────   ─────────                                     │
+│       冻结      可训练                                       │
+│                                                             │
+│   关键点:                                                    │
+│   ┌─────────────────────────────────────────────────────┐   │
+│   │  W: 原始权重 (d_out × d_in)     → 冻结，不更新       │   │
+│   │  A: 低秩矩阵 (r × d_in)         → 可训练            │   │
+│   │  B: 低秩矩阵 (d_out × r)        → 可训练            │   │
+│   │                                                     │   │
+│   │  r << d_in, d_out  (例如 r=8, d=256)                │   │
+│   │  参数量: 2 × r × d << d × d                         │   │
+│   └─────────────────────────────────────────────────────┘   │
+│                                                             │
+│   效果:                                                      │
+│   - 原始参数 5M → 可训练参数 73K (1.4%)                      │
+│   - 训练速度快，显存占用低                                    │
+│   - 可为不同任务保存不同 LoRA，快速切换                       │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 使用方法
+
+```bash
+# 基础 LoRA 微调
+python train_lora.py
+
+# 自定义参数
+python train_lora.py \
+    --base_model checkpoints/sft_final.pt \
+    --lora_r 16 \
+    --lora_alpha 32 \
+    --epochs 5 \
+    --lr 1e-4
+
+# 指定目标模块（可选：c_attn, c_proj, linear1, linear2）
+python train_lora.py --target_modules c_attn c_proj linear1 linear2
+```
+
+### 代码示例
+
+```python
+from model import GPT, GPTConfig
+from lora import LoRAConfig, apply_lora_to_model, save_lora, load_lora
+
+# 1. 创建基础模型
+model = GPT(config)
+
+# 2. 配置 LoRA
+lora_config = LoRAConfig(
+    r=8,                              # 低秩维度
+    alpha=16,                         # 缩放因子
+    dropout=0.05,                     # Dropout
+    target_modules=["c_attn", "c_proj"]  # 目标层
+)
+
+# 3. 应用 LoRA
+model = apply_lora_to_model(model, lora_config)
+# 输出: 可训练参数 73,728 (1.38%)
+
+# 4. 训练（只有 LoRA 参数会更新）
+for input_ids, target_ids in dataloader:
+    _, loss = model(input_ids, target_ids)
+    loss.backward()
+    optimizer.step()
+
+# 5. 保存 LoRA 权重（仅几百 KB）
+save_lora(model, "checkpoints/my_lora")
+
+# 6. 加载 LoRA 到新模型
+new_model = GPT(config)
+new_model = load_lora(new_model, "checkpoints/my_lora")
+
+# 7. 可选：合并权重（推理时更快）
+from lora import merge_lora
+merge_lora(model)  # LoRA 权重合并到原模型，无额外计算开销
+```
+
+### LoRA vs 全量微调
+
+| 对比项 | 全量微调 | LoRA |
+|--------|----------|------|
+| 可训练参数 | 100% | ~1-2% |
+| 显存占用 | 高 | 低 |
+| 训练速度 | 慢 | 快 |
+| 存储空间 | 完整模型 | 仅 LoRA 权重 |
+| 多任务 | 每任务一个模型 | 共享基座 + 多个 LoRA |
+
+### 目标模块说明
+
+| 模块名 | 位置 | 建议 |
+|--------|------|------|
+| `c_attn` | 注意力层 QKV 投影 | ✅ 推荐 |
+| `c_proj` | 注意力层输出投影 | ✅ 推荐 |
+| `linear1` | MLP 第一层 | 可选 |
+| `linear2` | MLP 第二层 | 可选 |
+
+**推荐配置**：只对注意力层使用 LoRA (`c_attn`, `c_proj`)，参数效率最高。
+
+---
+
 ## 参考资料
 
 - 《Build a Large Language Model (From Scratch)》
 - "Attention Is All You Need" - Transformer 原论文
 - "Training language models to follow instructions with human feedback" - InstructGPT/RLHF
 - "Proximal Policy Optimization Algorithms" - PPO 论文
+- "LoRA: Low-Rank Adaptation of Large Language Models" - LoRA 论文
 - "Constitutional AI" - Anthropic
 
 ---
