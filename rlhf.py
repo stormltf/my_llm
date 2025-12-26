@@ -237,26 +237,72 @@ class PPOTrainer:
 
         返回：
             log_probs: 回复部分每个 token 的对数概率
+
+        详细说明：
+        ---------
+        自回归语言模型的特性是：位置 t 的输出 logits 预测的是位置 t+1 的 token。
+
+        举例说明（假设 response_start=5）：
+        ┌─────────────────────────────────────────────────────────────┐
+        │ 位置索引:    0     1     2     3     4  │  5     6     7    │
+        │ Token:     [BOS] [你]  [好]  [吗]  [？] │ [我]  [很]  [好]   │
+        │            ←───── prompt ─────────────→ │ ←── response ──→  │
+        │                                         │                    │
+        │ Logits:    L0    L1    L2    L3    L4   │ L5    L6    L7     │
+        │ 预测目标:   ↓     ↓     ↓     ↓     ↓   │  ↓     ↓     ↓     │
+        │           [你]  [好]  [吗]  [？]  [我]  │ [很]  [好]  [EOS]  │
+        └─────────────────────────────────────────────────────────────┘
+
+        为了计算 response 部分（位置 5,6,7）的生成概率：
+        - L4 预测 token[5]="我" → 需要 logits[4]
+        - L5 预测 token[6]="很" → 需要 logits[5]
+        - L6 预测 token[7]="好" → 需要 logits[6]
+
+        因此切片 logits[:, response_start-1:-1, :] 即 logits[:, 4:7, :]
+        对应的目标是 full_ids[:, response_start:] 即 tokens[5:8]
+
+        数学公式：
+        ---------
+        对于 token 序列 [t_1, t_2, ..., t_n]，其联合概率为：
+        P(t_1, t_2, ..., t_n) = ∏_{i=1}^{n} P(t_i | t_1, ..., t_{i-1})
+
+        对数概率：
+        log P = Σ_{i=1}^{n} log P(t_i | t_1, ..., t_{i-1})
         """
         with torch.set_grad_enabled(model.training):
-            # 前向传播
+            # 前向传播：获取所有位置的 logits
+            # logits 形状: [batch_size, seq_len, vocab_size]
             logits, _ = model(full_ids)
 
-            # 获取回复部分的 logits（用于预测下一个 token）
-            # logits[t] 预测 token[t+1]
+            # ============================================================
+            # 关键步骤：提取预测 response 的 logits
+            # ============================================================
+            # logits[t] 预测 token[t+1]（自回归特性）
+            # 所以要预测 response（从 response_start 开始），需要：
+            #   - 起始：logits[response_start - 1]（预测第一个 response token）
+            #   - 结束：logits[-2]（预测最后一个 response token，即 full_ids[-1]）
+            # 切片 [response_start-1 : -1] 正好获取这些位置
             response_logits = logits[:, response_start - 1:-1, :]  # [1, response_len, vocab]
 
-            # 获取实际生成的 token
+            # 获取实际生成的 response tokens 作为预测目标
             response_tokens = full_ids[:, response_start:]  # [1, response_len]
 
-            # 计算对数概率
-            log_probs = F.log_softmax(response_logits, dim=-1)
+            # ============================================================
+            # 计算每个 token 的对数概率
+            # ============================================================
+            # log_softmax 将 logits 转换为对数概率分布
+            # log P(token | context) = log_softmax(logits)
+            log_probs = F.log_softmax(response_logits, dim=-1)  # [1, response_len, vocab]
 
-            # 提取实际 token 的对数概率
+            # 使用 gather 提取实际生成 token 对应的对数概率
+            # gather 操作示意：
+            #   log_probs[batch, pos, :] 是一个 vocab_size 的向量
+            #   response_tokens[batch, pos] 是实际 token 的索引
+            #   gather 取出 log_probs[batch, pos, response_tokens[batch, pos]]
             token_log_probs = torch.gather(
                 log_probs,
                 dim=-1,
-                index=response_tokens.unsqueeze(-1)
+                index=response_tokens.unsqueeze(-1)  # [1, response_len, 1]
             ).squeeze(-1)  # [1, response_len]
 
             return token_log_probs
@@ -362,29 +408,99 @@ class PPOTrainer:
                     )
 
                 # ==========================================
-                # 计算 PPO 损失
+                # 计算 PPO 损失（核心算法）
                 # ==========================================
+                #
+                # PPO 的核心思想：限制策略更新幅度，防止灾难性更新
+                #
+                # 数学推导：
+                # ---------
+                # 1. 策略梯度定理告诉我们：
+                #    ∇J(θ) = E[∇log π_θ(a|s) * A(s,a)]
+                #
+                # 2. 重要性采样（使用旧策略的数据）：
+                #    ∇J(θ) = E_{π_old}[r(θ) * A], 其中 r(θ) = π_new/π_old
+                #
+                # 3. PPO-Clip 的目标函数：
+                #    L_CLIP = E[min(r*A, clip(r, 1-ε, 1+ε)*A)]
+                #
+                # 为什么要裁剪？
+                # ------------
+                # - 如果 A > 0（好动作），我们想增大 π_new，但不希望 r 太大
+                # - 如果 A < 0（坏动作），我们想减小 π_new，但不希望 r 太小
+                # - 裁剪保证 r 在 [1-ε, 1+ε] 范围内，限制单次更新幅度
 
-                # 概率比
+                # ============================================================
+                # Step 1: 计算概率比 r(θ) = π_new(a|s) / π_old(a|s)
+                # ============================================================
+                # 由于我们有对数概率，使用 exp(log_new - log_old) = new/old
+                # 举例：如果 new_log_prob = -2, old_log_prob = -3
+                #       ratio = exp(-2 - (-3)) = exp(1) ≈ 2.718
+                #       这意味着新策略选择该动作的概率是旧策略的 2.718 倍
                 ratio = torch.exp(new_log_probs - old_log_probs)
 
-                # 裁剪目标
+                # ============================================================
+                # Step 2: 计算裁剪后的概率比
+                # ============================================================
+                # clip_ratio 通常设为 0.2，即 r 被限制在 [0.8, 1.2]
+                # 这确保新策略不会偏离旧策略太远
+                #
+                # 可视化：
+                #        0.8      1.0      1.2
+                #    ─────┼────────┼────────┼─────
+                #         │        │        │
+                #    裁剪区 ←───────────────→ 裁剪区
+                #              有效更新区
                 clipped_ratio = torch.clamp(
                     ratio,
-                    1 - self.rlhf_config.clip_ratio,
-                    1 + self.rlhf_config.clip_ratio
+                    1 - self.rlhf_config.clip_ratio,  # 下界 (如 0.8)
+                    1 + self.rlhf_config.clip_ratio   # 上界 (如 1.2)
                 )
 
-                # 策略损失（取最小值）
+                # ============================================================
+                # Step 3: 计算策略损失（PPO-Clip 核心）
+                # ============================================================
+                # L = min(r * A, clip(r) * A)
+                #
+                # 这个 min 操作的巧妙之处：
+                # ┌─────────────────────────────────────────────────────────┐
+                # │ 情况1: A > 0 (好动作，应该鼓励)                          │
+                # │   - 我们希望增大 π_new，即 r > 1                         │
+                # │   - 但 min 操作限制了收益：当 r > 1+ε 时，取 clip(r)*A   │
+                # │   - 超出范围后梯度为0，阻止继续增大                       │
+                # │                                                          │
+                # │ 情况2: A < 0 (坏动作，应该抑制)                          │
+                # │   - 我们希望减小 π_new，即 r < 1                         │
+                # │   - 但 min 操作限制了惩罚：当 r < 1-ε 时，取 clip(r)*A   │
+                # │   - 超出范围后梯度为0，阻止继续减小                       │
+                # └─────────────────────────────────────────────────────────┘
+                #
+                # 注意：这里加负号是因为我们做的是梯度下降（最小化损失）
+                # 而 PPO 目标是最大化期望回报，所以需要取负
                 policy_loss = -torch.min(
-                    ratio * advantage,
-                    clipped_ratio * advantage
+                    ratio * advantage,           # 未裁剪的目标
+                    clipped_ratio * advantage    # 裁剪后的目标
                 ).mean()
 
-                # KL 散度惩罚
+                # ============================================================
+                # Step 4: 计算 KL 散度惩罚
+                # ============================================================
+                # KL 散度衡量新旧策略的差异程度
+                # KL(π_old || π_new) ≈ E[log π_old - log π_new]
+                #
+                # 这是一个额外的正则化项，确保新策略不会偏离太远
+                # kl_coef 控制惩罚强度（如 0.01）
+                #
+                # 注意：这里使用的是简化版 KL，真正的 KL 需要对所有动作求和
                 kl_div = (old_log_probs - new_log_probs).mean()
 
-                # 总损失
+                # ============================================================
+                # Step 5: 计算总损失
+                # ============================================================
+                # 总损失 = 策略损失 + KL惩罚系数 * KL散度
+                # 最小化这个损失会：
+                #   1. 最大化好动作的概率（策略损失项）
+                #   2. 惩罚偏离旧策略太远的更新（KL项）
                 loss = policy_loss + self.rlhf_config.kl_coef * kl_div
 
                 # 反向传播

@@ -77,8 +77,8 @@ class MyLLMConfig:
     # ==========================================
 
     # 词表大小：模型的"词汇量"
-    # 6400 = 常用中文字(~6000) + 标点符号 + 特殊token
-    vocab_size: int = 6400
+    # 2000 = 适合小规模训练的词表大小
+    vocab_size: int = 2000
 
     # 嵌入维度：每个字被表示成多少维的向量
     # 256维是一个适合CPU训练的小规模配置
@@ -370,7 +370,7 @@ def get_mini_config() -> MyLLMConfig:
     """
     return MyLLMConfig(
         model_name="my_llm-mini",
-        vocab_size=6400,
+        vocab_size=2000,
         emb_dim=256,
         num_heads=4,
         num_layers=4,
@@ -386,7 +386,7 @@ def get_small_config() -> MyLLMConfig:
     """
     return MyLLMConfig(
         model_name="my_llm-small",
-        vocab_size=6400,
+        vocab_size=2000,
         emb_dim=512,
         num_heads=8,
         num_layers=8,

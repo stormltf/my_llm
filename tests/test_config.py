@@ -27,7 +27,7 @@ class TestMyLLMConfig:
         config = MyLLMConfig()
 
         assert config.model_name == "my_llm"
-        assert config.vocab_size == 6400
+        assert config.vocab_size == 2000
         assert config.emb_dim == 256
         assert config.num_heads == 4
         assert config.num_layers == 4
@@ -144,7 +144,7 @@ class TestPresetConfigs:
         config = get_mini_config()
 
         assert config.model_name == "my_llm-mini"
-        assert config.vocab_size == 6400
+        assert config.vocab_size == 2000
         assert config.emb_dim == 256
         assert config.num_heads == 4
         assert config.num_layers == 4
@@ -154,7 +154,7 @@ class TestPresetConfigs:
         config = get_small_config()
 
         assert config.model_name == "my_llm-small"
-        assert config.vocab_size == 6400
+        assert config.vocab_size == 2000
         assert config.emb_dim == 512
         assert config.num_heads == 8
         assert config.num_layers == 8

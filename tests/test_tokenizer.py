@@ -23,7 +23,7 @@ class TestBPETokenizer:
     def test_init_default(self):
         """测试默认初始化"""
         tokenizer = BPETokenizer()
-        assert tokenizer.vocab_size == 1000
+        assert tokenizer.vocab_size == 2000
         assert len(tokenizer.special_tokens) == 4
         assert tokenizer.pad_token_id == 0
         assert tokenizer.unk_token_id == 1
@@ -152,7 +152,7 @@ class TestMyLLMTokenizer:
     def test_init_default(self):
         """测试默认初始化"""
         tokenizer = MyLLMTokenizer()
-        assert tokenizer.vocab_size == 6400
+        assert tokenizer.vocab_size == 2000
         assert tokenizer.im_start_token_id == 4
         assert tokenizer.im_end_token_id == 5
 

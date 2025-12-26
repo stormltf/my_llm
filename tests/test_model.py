@@ -27,7 +27,7 @@ class TestGPTConfig:
     def test_default_config(self):
         """测试默认配置"""
         config = GPTConfig()
-        assert config.vocab_size == 1000
+        assert config.vocab_size == 2000
         assert config.emb_dim == 256
         assert config.num_heads == 8
         assert config.num_layers == 6

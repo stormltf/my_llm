@@ -515,8 +515,8 @@ def main():
                         help="运行模式: demo(演示) | train(训练) | generate(生成) | interactive(交互)")
 
     # ----- 模型结构参数 -----
-    parser.add_argument("--vocab_size", type=int, default=1000,
-                        help="词表大小，取决于分词器 (默认: 1000)")
+    parser.add_argument("--vocab_size", type=int, default=2000,
+                        help="词表大小，取决于分词器 (默认: 2000)")
     parser.add_argument("--emb_dim", type=int, default=256,
                         help="词嵌入维度，越大表达能力越强但越慢 (默认: 256)")
     parser.add_argument("--num_heads", type=int, default=8,

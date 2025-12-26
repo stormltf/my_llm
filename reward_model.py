@@ -341,20 +341,87 @@ class RewardModelTrainer:
     """
     奖励模型训练器
 
-    使用 Bradley-Terry 模型损失函数：
-    --------------------------------
-    L = -log(sigmoid(r_chosen - r_rejected))
+    使用 Bradley-Terry 模型损失函数训练奖励模型，使其能够区分"好回答"和"差回答"。
 
-    直觉理解：
-    --------
-    我们希望 r_chosen > r_rejected，
-    即 r_chosen - r_rejected > 0，
-    即 sigmoid(r_chosen - r_rejected) > 0.5，
-    此时 -log(sigmoid(...)) 较小。
+    ═══════════════════════════════════════════════════════════════════════════
+    Bradley-Terry 模型详解
+    ═══════════════════════════════════════════════════════════════════════════
 
-    这个损失函数来源于概率模型：
-    P(chosen > rejected) = sigmoid(r_chosen - r_rejected)
-    我们最大化这个概率，等价于最小化负对数似然。
+    历史背景：
+    ---------
+    Bradley-Terry 模型是 1952 年提出的成对比较模型，最初用于体育比赛预测。
+    在 RLHF 中，我们用它来建模人类偏好：给定两个回答，哪个更好？
+
+    数学推导：
+    ---------
+    假设每个回答有一个"真实分数" r，我们希望建模概率：
+
+        P(回答A优于回答B) = ?
+
+    Bradley-Terry 模型假设：
+
+        P(A > B) = exp(r_A) / (exp(r_A) + exp(r_B))
+                 = 1 / (1 + exp(r_B - r_A))
+                 = sigmoid(r_A - r_B)
+
+    这是一个很自然的假设：
+    - 当 r_A >> r_B 时，P(A > B) → 1
+    - 当 r_A << r_B 时，P(A > B) → 0
+    - 当 r_A = r_B 时，P(A > B) = 0.5
+
+    损失函数推导：
+    -------------
+    给定训练数据 (chosen, rejected)，我们知道 chosen 应该比 rejected 好。
+    最大似然估计：
+
+        maximize P(chosen > rejected)
+        = maximize sigmoid(r_chosen - r_rejected)
+        = maximize log(sigmoid(r_chosen - r_rejected))
+        = minimize -log(sigmoid(r_chosen - r_rejected))
+
+    因此损失函数为：
+        L = -log(sigmoid(r_chosen - r_rejected))
+          = -logsigmoid(r_chosen - r_rejected)
+
+    数值稳定性说明：
+    ---------------
+    直接计算 -log(sigmoid(x)) 可能会有数值问题：
+    - 当 x 很小（负）时，sigmoid(x) → 0，log(0) → -∞
+
+    PyTorch 的 F.logsigmoid(x) 使用了数值稳定的实现：
+        logsigmoid(x) = -softplus(-x) = x - softplus(x)
+
+    可视化：
+    -------
+    Loss 函数的形状：
+
+        L
+        │
+      2 ├──╮
+        │   ╲
+      1 ├    ╲
+        │     ╲___
+      0 ├─────────╲____________________
+        │          │         │
+        └──────────┼─────────┼─────────→ (r_chosen - r_rejected)
+                  -2         0          2
+
+    - 当 r_chosen >> r_rejected 时，loss → 0 ✓
+    - 当 r_chosen << r_rejected 时，loss → ∞（惩罚）
+    - 当 r_chosen = r_rejected 时，loss = log(2) ≈ 0.69
+
+    与交叉熵的关系：
+    ---------------
+    这个损失实际上等价于二分类交叉熵：
+    - 标签 y = 1（chosen 总是更好）
+    - 预测 p = sigmoid(r_chosen - r_rejected)
+    - BCE = -y*log(p) - (1-y)*log(1-p) = -log(p)
+
+    训练技巧：
+    ---------
+    1. 奖励模型的分数没有绝对意义，只有相对大小有意义
+    2. 可以添加正则化防止奖励分数发散（如 L2 正则）
+    3. 数据质量很重要：噪声标签会严重影响模型
     """
 
     def __init__(
@@ -406,12 +473,51 @@ class RewardModelTrainer:
 
         返回：
             损失值（标量）
+
+        计算过程示例：
+        -------------
+        假设 batch_size = 3：
+            chosen_rewards  = [2.5, 1.8, 3.0]   （好回答的分数）
+            rejected_rewards = [1.0, 2.0, 1.5]  （差回答的分数）
+
+        Step 1: 计算奖励差
+            reward_diff = [2.5-1.0, 1.8-2.0, 3.0-1.5]
+                        = [1.5, -0.2, 1.5]
+
+        Step 2: 计算 logsigmoid
+            logsigmoid([1.5, -0.2, 1.5])
+            = [log(sigmoid(1.5)), log(sigmoid(-0.2)), log(sigmoid(1.5))]
+            ≈ [-0.20, -0.80, -0.20]
+
+            注意：
+            - reward_diff = 1.5 > 0（好回答分数更高）→ logsigmoid ≈ -0.20（接近0）
+            - reward_diff = -0.2 < 0（差回答分数更高）→ logsigmoid ≈ -0.80（惩罚更大）
+
+        Step 3: 取负号并求平均
+            loss = -mean([-0.20, -0.80, -0.20])
+                 = mean([0.20, 0.80, 0.20])
+                 = 0.40
+
+        损失值的解释：
+        - loss → 0：模型完美区分（chosen 分数远高于 rejected）
+        - loss → log(2) ≈ 0.69：模型随机猜测（两者分数相近）
+        - loss → ∞：模型完全错误（rejected 分数远高于 chosen）
         """
-        # 计算奖励差
+        # ============================================================
+        # Step 1: 计算奖励分数之差
+        # ============================================================
+        # 我们希望这个差值为正（chosen 分数更高）
         reward_diff = chosen_rewards - rejected_rewards
 
-        # Bradley-Terry 损失
+        # ============================================================
+        # Step 2: 计算 Bradley-Terry 损失
+        # ============================================================
         # L = -log(sigmoid(r_chosen - r_rejected))
+        #
+        # 使用 F.logsigmoid 而不是 -log(sigmoid(...)) 的原因：
+        # - 数值稳定性更好
+        # - 当 reward_diff 很负时，sigmoid → 0，log(0) = -∞
+        # - logsigmoid 使用 log(sigmoid(x)) = x - softplus(x) 避免这个问题
         loss = -F.logsigmoid(reward_diff).mean()
 
         return loss

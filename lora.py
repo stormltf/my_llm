@@ -80,13 +80,48 @@ class LoRALinear(nn.Module):
     """
     带 LoRA 适配器的线性层
 
-    实现公式: output = W @ x + (B @ A) @ x * (alpha / r)
+    LoRA 的核心思想：低秩分解
+    ==========================
+    预训练模型的权重矩阵通常是"满秩"的，但微调时的更新往往是"低秩"的。
+    这意味着我们可以用两个小矩阵的乘积来近似权重更新：
 
-    其中:
-    - W: 原始冻结的权重矩阵
-    - A: 低秩矩阵 (r x in_features)，用 kaiming 初始化
-    - B: 低秩矩阵 (out_features x r)，用零初始化
-    - alpha/r: 缩放因子
+        ΔW ≈ B @ A
+
+    其中：
+        - W: 原始权重 (out_features × in_features)，例如 (768 × 768)
+        - A: 降维矩阵 (r × in_features)，例如 (8 × 768)
+        - B: 升维矩阵 (out_features × r)，例如 (768 × 8)
+        - r: 秩（rank），通常取 4, 8, 16 等小值
+
+    参数量对比（假设 in_features = out_features = 768, r = 8）：
+        - 原始 W: 768 × 768 = 589,824 参数
+        - LoRA (A+B): 8 × 768 + 768 × 8 = 12,288 参数
+        - 减少比例: 98%
+
+    数学公式：
+        原始: y = Wx
+        LoRA: y = Wx + BAx × (α/r)
+                = Wx + ΔWx × scaling
+
+    其中 α/r 是缩放因子，用于控制 LoRA 的影响强度。
+
+    维度可视化：
+    ┌─────────────────────────────────────────────────────────────┐
+    │                                                              │
+    │   输入 x        A 矩阵         中间态 z       B 矩阵         输出 Δy     │
+    │  ┌───┐       ┌───────┐        ┌───┐       ┌───────┐        ┌───┐   │
+    │  │   │       │       │        │   │       │       │        │   │   │
+    │  │ d │  ──→  │ r × d │  ──→   │ r │  ──→  │ d × r │  ──→   │ d │   │
+    │  │   │       │       │        │   │       │       │        │   │   │
+    │  └───┘       └───────┘        └───┘       └───────┘        └───┘   │
+    │  (d,)         (r, d)          (r,)         (d, r)          (d,)    │
+    │                                                                     │
+    │  d = in/out_features (如 768)                                       │
+    │  r = rank (如 8)                                                    │
+    │                                                                     │
+    │  计算: z = A @ x    (768→8，降维)                                   │
+    │        Δy = B @ z   (8→768，升维)                                   │
+    └─────────────────────────────────────────────────────────────────────┘
     """
 
     def __init__(
@@ -101,71 +136,143 @@ class LoRALinear(nn.Module):
 
         Args:
             original_layer: 原始的 nn.Linear 层
-            r: 低秩矩阵的秩
+            r: 低秩矩阵的秩（rank）
+               - 越大：表达能力越强，但参数越多
+               - 越小：参数更少，但可能欠拟合
+               - 推荐值：4, 8, 16, 32
             alpha: 缩放因子
-            dropout: dropout 比例
+               - 控制 LoRA 更新的强度
+               - 实际缩放 = alpha / r
+               - 通常设为 r 的 1-2 倍
+            dropout: dropout 比例，用于正则化
         """
         super().__init__()
 
         self.original_layer = original_layer
         self.r = r
         self.alpha = alpha
-        self.scaling = alpha / r
+        self.scaling = alpha / r  # 缩放因子，通常为 1.0 或 2.0
 
         in_features = original_layer.in_features
         out_features = original_layer.out_features
 
-        # 冻结原始权重
+        # ============================================================
+        # 冻结原始权重（LoRA 的核心：只训练新增的小矩阵）
+        # ============================================================
         self.original_layer.weight.requires_grad = False
         if self.original_layer.bias is not None:
             self.original_layer.bias.requires_grad = False
 
+        # ============================================================
         # 创建 LoRA 矩阵
-        # A: (r, in_features) - 用 kaiming 初始化
-        # B: (out_features, r) - 用零初始化（保证初始时 LoRA 不改变输出）
+        # ============================================================
+        # A 矩阵: (r × in_features) - 将输入从 in_features 降维到 r
+        # B 矩阵: (out_features × r) - 将中间表示从 r 升维到 out_features
+        #
+        # 初始化策略的关键设计：
+        #   - A: 使用 Kaiming 初始化（保持方差稳定）
+        #   - B: 使用零初始化
+        #
+        # 为什么 B 初始化为零？
+        #   训练开始时：ΔW = B @ A = 0 @ A = 0
+        #   这保证了：
+        #   1. 初始状态下 LoRA 不改变原模型的输出
+        #   2. 训练从原模型的良好状态开始
+        #   3. 避免随机初始化破坏预训练的知识
         self.lora_A = nn.Parameter(torch.empty(r, in_features))
         self.lora_B = nn.Parameter(torch.zeros(out_features, r))
 
-        # 初始化 A 矩阵
+        # Kaiming 初始化 A 矩阵
+        # a=sqrt(5) 是 PyTorch Linear 层的默认值，保持与原始层一致
         nn.init.kaiming_uniform_(self.lora_A, a=math.sqrt(5))
 
-        # Dropout
+        # Dropout（可选的正则化）
         self.dropout = nn.Dropout(p=dropout) if dropout > 0 else nn.Identity()
 
-        # 是否已合并
+        # 合并状态标记
         self.merged = False
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         前向传播
 
-        如果已合并，直接使用原始层
-        否则，计算 original_output + lora_output
+        计算: y = Wx + BAx × scaling
+
+        实现细节：
+        ---------
+        我们不直接计算 (B @ A) @ x，而是分两步：
+            1. z = A @ x   (先降维)
+            2. Δy = B @ z  (再升维)
+
+        这样更高效，因为避免了计算 B @ A 这个大矩阵。
+
+        计算量对比（假设 batch=32, seq=128, d=768, r=8）：
+            方法1: (B @ A) @ x
+                   B @ A: 768 × 8 × 768 = 4.7M 次乘法
+                   结果 @ x: 768 × 768 × (32×128) = 2.4B 次乘法
+                   总计: ~2.4B
+
+            方法2: B @ (A @ x)
+                   A @ x: 8 × 768 × (32×128) = 25M 次乘法
+                   B @ 结果: 768 × 8 × (32×128) = 25M 次乘法
+                   总计: ~50M
+
+            方法2 快 ~48 倍！
         """
         if self.merged:
+            # 如果已合并，直接使用原始层（无额外计算）
             return self.original_layer(x)
 
-        # 原始输出
+        # 原始输出: y = Wx
         original_output = self.original_layer(x)
 
-        # LoRA 输出: (B @ A) @ x * scaling
-        # 分步计算更高效: B @ (A @ x)
+        # ============================================================
+        # LoRA 输出: Δy = B @ (A @ x) × scaling
+        # ============================================================
+        # 注意：F.linear(x, W) 计算的是 x @ W^T（即 W @ x 的效果）
         lora_output = self.dropout(x)
-        lora_output = F.linear(lora_output, self.lora_A)  # x @ A^T
-        lora_output = F.linear(lora_output, self.lora_B)  # (x @ A^T) @ B^T
+        lora_output = F.linear(lora_output, self.lora_A)  # z = x @ A^T，形状从 (..., d) → (..., r)
+        lora_output = F.linear(lora_output, self.lora_B)  # Δy = z @ B^T，形状从 (..., r) → (..., d)
         lora_output = lora_output * self.scaling
 
+        # 最终输出 = 原始输出 + LoRA 增量
         return original_output + lora_output
 
     def merge_weights(self):
         """
         将 LoRA 权重合并到原始权重中
 
-        合并后推理更快，但无法继续训练 LoRA
+        合并公式: W' = W + B @ A × scaling
+
+        为什么是 B @ A 而不是 A @ B？
+        ---------------------------
+        看维度就清楚了：
+            - A: (r × in_features)，如 (8 × 768)
+            - B: (out_features × r)，如 (768 × 8)
+            - B @ A: (768 × 8) @ (8 × 768) = (768 × 768) ✓
+            - A @ B: (8 × 768) @ (768 × 8) = (8 × 8) ✗
+
+        B @ A 的结果维度 (out_features × in_features) 与原始权重 W 相同。
+
+        可视化：
+        ┌─────────┐     ┌───────┐     ┌─────────┐
+        │  B      │  @  │   A   │  =  │  ΔW     │
+        │ (d × r) │     │(r × d)│     │ (d × d) │
+        │  768×8  │     │ 8×768 │     │ 768×768 │
+        └─────────┘     └───────┘     └─────────┘
+
+        合并的优点：
+            1. 推理时无额外计算开销
+            2. 可以将 LoRA 导出为普通模型权重
+
+        合并的缺点：
+            1. 无法继续训练这个 LoRA
+            2. 无法轻松切换到其他 LoRA
         """
         if not self.merged:
-            # W' = W + B @ A * scaling
+            # 计算权重增量: ΔW = B @ A × scaling
             delta_weight = (self.lora_B @ self.lora_A) * self.scaling
+            # 合并到原始权重: W' = W + ΔW
             self.original_layer.weight.data += delta_weight
             self.merged = True
 
@@ -173,9 +280,15 @@ class LoRALinear(nn.Module):
         """
         从原始权重中移除 LoRA 权重
 
-        用于继续训练或切换不同的 LoRA
+        公式: W = W' - B @ A × scaling
+
+        使用场景：
+            1. 需要继续训练 LoRA
+            2. 需要切换到不同的 LoRA 权重
+            3. 需要比较有无 LoRA 的效果
         """
         if self.merged:
+            # 计算并减去权重增量
             delta_weight = (self.lora_B @ self.lora_A) * self.scaling
             self.original_layer.weight.data -= delta_weight
             self.merged = False
