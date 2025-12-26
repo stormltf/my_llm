@@ -394,7 +394,7 @@ def main():
     parser.add_argument("--dropout", type=float, default=0.1, help="Dropout 比例")
 
     # 训练参数
-    parser.add_argument("--epochs", type=int, default=100, help="训练轮数")
+    parser.add_argument("--epochs", type=int, default=10, help="训练轮数（适合小数据集）")
     parser.add_argument("--batch_size", type=int, default=32, help="批次大小")
     parser.add_argument("--lr", type=float, default=1e-3, help="学习率")
     parser.add_argument("--weight_decay", type=float, default=0.01, help="权重衰减")

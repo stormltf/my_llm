@@ -126,7 +126,8 @@ class MyLLMConfig:
     batch_size: int = 32
 
     # 训练轮数：整个数据集过多少遍
-    num_epochs: int = 10
+    # 小数据集建议 5-10 轮，避免过拟合
+    num_epochs: int = 5
 
     # ==========================================
     # 特殊Token ID

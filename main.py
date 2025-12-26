@@ -529,8 +529,8 @@ def main():
                         help="Dropout 比例，防止过拟合 (默认: 0.1)")
 
     # ----- 训练参数 -----
-    parser.add_argument("--epochs", type=int, default=100,
-                        help="训练轮数，遍历整个数据集的次数 (默认: 100)")
+    parser.add_argument("--epochs", type=int, default=10,
+                        help="训练轮数，遍历整个数据集的次数 (默认: 10，适合小数据集)")
     parser.add_argument("--batch_size", type=int, default=32,
                         help="批次大小，每次训练用多少样本 (默认: 32)")
     parser.add_argument("--lr", type=float, default=1e-3,
