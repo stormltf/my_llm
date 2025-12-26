@@ -89,17 +89,110 @@ my_llm/
 
 ---
 
+## 环境要求
+
+- **Python**: 3.8+
+- **操作系统**: Linux / macOS / Windows
+- **硬件**: CPU 即可运行（GPU 可加速）
+
+---
+
+## 安装步骤
+
+```bash
+# 1. 克隆项目
+git clone https://github.com/your-repo/my_llm.git
+cd my_llm
+
+# 2. 创建虚拟环境（推荐）
+python3 -m venv venv
+source venv/bin/activate  # Linux/macOS
+# 或 venv\Scripts\activate  # Windows
+
+# 3. 安装依赖
+pip install -r requirements.txt
+
+# 4. 验证环境（可选但推荐）
+python3 verify_setup.py
+```
+
+---
+
 ## 快速开始
 
 ```bash
-# 安装依赖
-pip install -r requirements.txt
-
 # 运行完整训练流程
-python train.py
+python3 train.py
 
 # 跳过特定阶段
-python train.py --skip-pretrain --skip-sft
+python3 train.py --skip-pretrain --skip-sft
+```
+
+---
+
+## 各脚本启动命令
+
+### 1. 环境验证
+
+```bash
+# 检查环境配置和数据文件是否完整
+python3 verify_setup.py
+```
+
+### 2. 模型训练 (train.py)
+
+```bash
+# 基本训练（默认参数）
+python3 train.py
+
+# 自定义训练参数
+python3 train.py --epochs 100 --batch_size 32 --lr 1e-3
+
+# 从检查点恢复训练
+python3 train.py --resume --checkpoint_path checkpoints/checkpoint_epoch_50.pt
+
+# 常用参数说明：
+#   --epochs        训练轮数（默认 10）
+#   --batch_size    批次大小（默认 32）
+#   --lr            学习率（默认 1e-3）
+#   --seq_len       序列长度（默认 64）
+#   --save_every    保存频率（默认每 10 轮）
+```
+
+### 3. 文本生成 (generate.py)
+
+```bash
+# 指定提示词生成文本
+python3 generate.py --prompt "你好" --max_length 50
+
+# 进入交互式对话模式
+python3 generate.py --interactive
+
+# 调整生成参数
+python3 generate.py --prompt "人工智能" \
+    --temperature 0.8 \
+    --top_k 10 \
+    --top_p 0.9 \
+    --max_length 100
+
+# 贪婪解码（确定性输出）
+python3 generate.py --prompt "你好" --greedy
+
+# 使用指定模型
+python3 generate.py --checkpoint checkpoints/sft_final.pt --prompt "你好"
+```
+
+### 4. 模型验证 (test_model.py)
+
+```bash
+# 验证默认模型
+python3 test_model.py
+
+# 显示详细输出
+python3 test_model.py --verbose
+
+# 验证指定模型
+python3 test_model.py --model checkpoints/sft_final.pt
 ```
 
 ---
