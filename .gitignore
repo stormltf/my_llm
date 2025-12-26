@@ -43,3 +43,8 @@ Thumbs.db
 venv/
 .env/
 env/
+.coverage
+__pycache__/
+.pytest_cache/
+__pycache__/
+.pytest_cache/

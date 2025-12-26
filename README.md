@@ -86,6 +86,15 @@ my_llm/
 │   ├── sft_data.json       # SFT 对话数据 (94条)
 │   ├── reward_data.json    # 奖励数据 (40对)
 │   └── rlvf_data.json      # RLVF 任务 (40条)
+├── tests/                  # 单元测试
+│   ├── test_tokenizer.py   # 分词器测试
+│   ├── test_model.py       # 模型测试
+│   ├── test_config.py      # 配置测试
+│   ├── test_lora.py        # LoRA 测试
+│   ├── test_generate.py    # 生成器测试
+│   └── test_reward_model.py # 奖励模型测试
+├── requirements-test.txt   # 测试依赖
+├── pytest.ini              # pytest 配置
 └── checkpoints/            # 模型检查点
     └── vocab.json          # BPE 词表 (含合并规则)
 ```
@@ -233,6 +242,44 @@ python3 test_model.py --verbose
 # 验证指定模型
 python3 test_model.py --model checkpoints/sft_final.pt
 ```
+
+### 5. 单元测试 (pytest)
+
+```bash
+# 安装测试依赖
+pip install -r requirements-test.txt
+
+# 运行所有测试
+python3 -m pytest tests/ -v
+
+# 运行特定测试文件
+python3 -m pytest tests/test_model.py -v      # 模型测试
+python3 -m pytest tests/test_tokenizer.py -v  # 分词器测试
+python3 -m pytest tests/test_lora.py -v       # LoRA 测试
+python3 -m pytest tests/test_config.py -v     # 配置测试
+python3 -m pytest tests/test_generate.py -v   # 生成器测试
+python3 -m pytest tests/test_reward_model.py -v  # 奖励模型测试
+
+# 运行带覆盖率报告的测试
+python3 -m pytest tests/ --cov=. --cov-report=term-missing
+
+# 快速测试（只运行关键测试）
+python3 -m pytest tests/ -v --tb=short
+
+# 并行测试（需要 pytest-xdist）
+python3 -m pytest tests/ -n auto
+```
+
+**测试覆盖模块：**
+
+| 测试文件 | 覆盖模块 | 测试内容 |
+|---------|---------|---------|
+| `test_tokenizer.py` | `tokenizer.py` | BPE 分词、编码解码、保存加载 |
+| `test_model.py` | `model.py` | GPT 架构、前向传播、梯度流 |
+| `test_config.py` | `config.py` | 配置验证、预设配置、RLHF/RLVF 配置 |
+| `test_lora.py` | `lora.py` | LoRA 层、权重合并、保存加载 |
+| `test_generate.py` | `generate.py` | 文本生成、采样策略、困惑度 |
+| `test_reward_model.py` | `reward_model.py` | 奖励模型、Bradley-Terry 损失 |
 
 ---
 
