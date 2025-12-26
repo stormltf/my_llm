@@ -4,8 +4,6 @@ BPE (Byte Pair Encoding) 分词器实现
 BPE 是目前最流行的子词分词算法，核心思想是：
 1. 从字符级别开始，逐步合并最高频的相邻字符对
 2. 反复迭代，直到达到预设的词表大小
-
-作者：根据《Build a Large Language Model (From Scratch)》实现
 """
 
 import os
@@ -703,7 +701,7 @@ def demo_tokenizer():
 
     # 保存分词器
     print("\n" + "=" * 50)
-    tokenizer.save("/Users/bytedance/Downloads/go/src/github.com/my_llm/data/tokenizer.json")
+    tokenizer.save("~/Downloads/go/src/github.com/my_llm/data/tokenizer.json")
 
 
 if __name__ == "__main__":
