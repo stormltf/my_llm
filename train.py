@@ -549,25 +549,25 @@ def main():
     parser.add_argument("--seq_len", type=int, default=64, help="序列长度")
 
     # 预训练参数
-    parser.add_argument("--pretrain_epochs", type=int, default=5, help="预训练轮数")
+    parser.add_argument("--pretrain_epochs", type=int, default=10, help="预训练轮数")
     parser.add_argument("--pretrain_lr", type=float, default=3e-4, help="预训练学习率")
 
-    # SFT 参数
-    parser.add_argument("--sft_epochs", type=int, default=5, help="SFT 训练轮数")
-    parser.add_argument("--sft_lr", type=float, default=1e-4, help="SFT 学习率")
+    # SFT 参数 (增加轮次以更好地学习对话格式)
+    parser.add_argument("--sft_epochs", type=int, default=100, help="SFT 训练轮数")
+    parser.add_argument("--sft_lr", type=float, default=5e-5, help="SFT 学习率")
 
-    # 奖励模型参数
-    parser.add_argument("--reward_epochs", type=int, default=3, help="奖励模型训练轮数")
+    # 奖励模型参数 (增加轮次以更好地学习偏好)
+    parser.add_argument("--reward_epochs", type=int, default=15, help="奖励模型训练轮数")
     parser.add_argument("--reward_lr", type=float, default=1e-5, help="奖励模型学习率")
     parser.add_argument("--reward_batch_size", type=int, default=4, help="奖励模型批次大小")
 
-    # RLHF 参数
-    parser.add_argument("--rlhf_episodes", type=int, default=50, help="RLHF 训练轮数")
+    # RLHF 参数 (增加轮次以获得更好的对齐效果)
+    parser.add_argument("--rlhf_episodes", type=int, default=100, help="RLHF 训练轮数")
     parser.add_argument("--rlhf_lr", type=float, default=1e-5, help="RLHF 学习率")
     parser.add_argument("--rlhf_batch_size", type=int, default=4, help="RLHF 批次大小")
 
-    # RLVF 参数
-    parser.add_argument("--rlvf_iterations", type=int, default=30, help="RLVF 迭代次数")
+    # RLVF 参数 (增加迭代次数以提升推理能力)
+    parser.add_argument("--rlvf_iterations", type=int, default=60, help="RLVF 迭代次数")
     parser.add_argument("--rlvf_lr", type=float, default=1e-5, help="RLVF 学习率")
     parser.add_argument("--rlvf_batch_size", type=int, default=4, help="RLVF 批次大小")
 

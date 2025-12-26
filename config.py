@@ -112,6 +112,15 @@ class MyLLMConfig:
     # 推理时应设为0
     dropout: float = 0.1
 
+    # FFN 隐藏层维度倍数
+    # FFN 隐藏层维度 = emb_dim * ffn_multiplier
+    # 常见设置是 4 倍，GPT-2/3 都用的 4 倍
+    ffn_multiplier: int = 4
+
+    # LayerNorm 的 epsilon 值
+    # 用于数值稳定性，防止除零
+    layer_norm_epsilon: float = 1e-5
+
     # ==========================================
     # 训练参数
     # ==========================================
@@ -126,8 +135,8 @@ class MyLLMConfig:
     batch_size: int = 32
 
     # 训练轮数：整个数据集过多少遍
-    # 小数据集建议 5-10 轮，避免过拟合
-    num_epochs: int = 5
+    # SFT 阶段需要更多轮次来学习对话格式
+    num_epochs: int = 100
 
     # ==========================================
     # 特殊Token ID
@@ -284,8 +293,8 @@ class RLHFTrainConfig:
     max_new_tokens : int
         生成时的最大新 token 数
     """
-    # 奖励模型训练
-    reward_model_epochs: int = 3
+    # 奖励模型训练 (增加轮次以更好地学习偏好)
+    reward_model_epochs: int = 15
     reward_model_lr: float = 1e-5
     reward_model_batch_size: int = 4
 
@@ -297,7 +306,7 @@ class RLHFTrainConfig:
     value_coef: float = 0.5
     entropy_coef: float = 0.01
 
-    # 训练循环
+    # 训练循环 (增加轮次以获得更好的对齐效果)
     num_episodes: int = 100
     batch_size: int = 8
     max_new_tokens: int = 64
@@ -333,8 +342,9 @@ class RLVFTrainConfig:
     max_new_tokens : int
         生成时的最大新 token 数
     """
-    num_iterations: int = 50
-    samples_per_task: int = 2
+    # 增加迭代次数以提升推理能力
+    num_iterations: int = 60
+    samples_per_task: int = 3
     batch_size: int = 4
 
     correct_reward: float = 1.0

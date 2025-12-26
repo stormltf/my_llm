@@ -123,21 +123,35 @@
     "type": "logic",
     "prompt": "如果所有猫都是动物，所有动物都会呼吸，那么猫会呼吸吗？",
     "expected_answer": "是",
-    "keywords": ["是", "会", "正确", "对"],
+    "keywords": [
+      "是",
+      "会",
+      "正确",
+      "对"
+    ],
     "difficulty": "easy"
   },
   {
     "type": "logic",
     "prompt": "如果A比B高，B比C高，那么A比C高吗？",
     "expected_answer": "是",
-    "keywords": ["是", "高", "正确", "对"],
+    "keywords": [
+      "是",
+      "高",
+      "正确",
+      "对"
+    ],
     "difficulty": "easy"
   },
   {
     "type": "logic",
     "prompt": "如果下雨地面就会湿，现在地面是干的，那么刚才下雨了吗？",
     "expected_answer": "没有",
-    "keywords": ["没", "不", "否"],
+    "keywords": [
+      "没",
+      "不",
+      "否"
+    ],
     "difficulty": "medium"
   },
   {
@@ -162,7 +176,10 @@
     "type": "logic",
     "prompt": "今天是星期一，再过3天是星期几？",
     "expected_answer": "星期四",
-    "keywords": ["四", "4"],
+    "keywords": [
+      "四",
+      "4"
+    ],
     "difficulty": "easy"
   },
   {
@@ -187,7 +204,9 @@
     "type": "logic",
     "prompt": "小明的爸爸有3个儿子，大儿子叫大明，二儿子叫二明，三儿子叫什么？",
     "expected_answer": "小明",
-    "keywords": ["小明"],
+    "keywords": [
+      "小明"
+    ],
     "difficulty": "easy"
   },
   {
@@ -200,7 +219,10 @@
     "type": "logic",
     "prompt": "如果A是B的父亲，B是C的父亲，那么A是C的什么？",
     "expected_answer": "爷爷",
-    "keywords": ["爷爷", "祖父"],
+    "keywords": [
+      "爷爷",
+      "祖父"
+    ],
     "difficulty": "easy"
   },
   {
@@ -231,7 +253,10 @@
     "type": "logic",
     "prompt": "如果今天是12月31日，明天是几月几日？",
     "expected_answer": "1月1日",
-    "keywords": ["1月1", "一月一"],
+    "keywords": [
+      "1月1",
+      "一月一"
+    ],
     "difficulty": "easy"
   },
   {
@@ -244,6 +269,245 @@
     "type": "logic",
     "prompt": "10的2次方是多少？",
     "expected_answer": "100",
+    "difficulty": "medium"
+  },
+  {
+    "type": "math",
+    "prompt": "计算：4+5=?",
+    "expected_answer": "9",
+    "difficulty": "easy"
+  },
+  {
+    "type": "math",
+    "prompt": "计算：13-7=?",
+    "expected_answer": "6",
+    "difficulty": "easy"
+  },
+  {
+    "type": "math",
+    "prompt": "计算：7×3=?",
+    "expected_answer": "21",
+    "difficulty": "easy"
+  },
+  {
+    "type": "math",
+    "prompt": "计算：56÷8=?",
+    "expected_answer": "7",
+    "difficulty": "easy"
+  },
+  {
+    "type": "math",
+    "prompt": "计算：9+15=?",
+    "expected_answer": "24",
+    "difficulty": "easy"
+  },
+  {
+    "type": "math",
+    "prompt": "计算：30-12=?",
+    "expected_answer": "18",
+    "difficulty": "easy"
+  },
+  {
+    "type": "math",
+    "prompt": "计算：4×8=?",
+    "expected_answer": "32",
+    "difficulty": "easy"
+  },
+  {
+    "type": "math",
+    "prompt": "计算：81÷9=?",
+    "expected_answer": "9",
+    "difficulty": "easy"
+  },
+  {
+    "type": "math",
+    "prompt": "计算：38+27=?",
+    "expected_answer": "65",
+    "difficulty": "medium"
+  },
+  {
+    "type": "math",
+    "prompt": "计算：85-49=?",
+    "expected_answer": "36",
+    "difficulty": "medium"
+  },
+  {
+    "type": "math",
+    "prompt": "计算：15×4=?",
+    "expected_answer": "60",
+    "difficulty": "medium"
+  },
+  {
+    "type": "math",
+    "prompt": "计算：96÷8=?",
+    "expected_answer": "12",
+    "difficulty": "medium"
+  },
+  {
+    "type": "math",
+    "prompt": "计算：6的平方是多少？",
+    "expected_answer": "36",
+    "difficulty": "medium"
+  },
+  {
+    "type": "math",
+    "prompt": "计算：7的平方是多少？",
+    "expected_answer": "49",
+    "difficulty": "medium"
+  },
+  {
+    "type": "math",
+    "prompt": "计算：8的平方是多少？",
+    "expected_answer": "64",
+    "difficulty": "medium"
+  },
+  {
+    "type": "math",
+    "prompt": "计算：3+4×5=?",
+    "expected_answer": "23",
+    "difficulty": "medium"
+  },
+  {
+    "type": "math",
+    "prompt": "计算：(4+6)×3=?",
+    "expected_answer": "30",
+    "difficulty": "medium"
+  },
+  {
+    "type": "math",
+    "prompt": "计算：50+25+25=?",
+    "expected_answer": "100",
+    "difficulty": "medium"
+  },
+  {
+    "type": "logic",
+    "prompt": "如果小明比小红高，小红比小华高，那么小明比小华高吗？",
+    "expected_answer": "是",
+    "keywords": [
+      "是",
+      "高",
+      "对"
+    ],
+    "difficulty": "easy"
+  },
+  {
+    "type": "logic",
+    "prompt": "一年有几个季节？",
+    "expected_answer": "4",
+    "difficulty": "easy"
+  },
+  {
+    "type": "logic",
+    "prompt": "一天有多少小时？",
+    "expected_answer": "24",
+    "difficulty": "easy"
+  },
+  {
+    "type": "logic",
+    "prompt": "一分钟有多少秒？",
+    "expected_answer": "60",
+    "difficulty": "easy"
+  },
+  {
+    "type": "logic",
+    "prompt": "地球有几个大洲？",
+    "expected_answer": "7",
+    "keywords": [
+      "7",
+      "七"
+    ],
+    "difficulty": "easy"
+  },
+  {
+    "type": "logic",
+    "prompt": "中国的首都是哪里？",
+    "expected_answer": "北京",
+    "keywords": [
+      "北京"
+    ],
+    "difficulty": "easy"
+  },
+  {
+    "type": "logic",
+    "prompt": "水的化学式是什么？",
+    "expected_answer": "H2O",
+    "keywords": [
+      "H2O",
+      "h2o"
+    ],
+    "difficulty": "easy"
+  },
+  {
+    "type": "logic",
+    "prompt": "太阳从哪个方向升起？",
+    "expected_answer": "东",
+    "keywords": [
+      "东"
+    ],
+    "difficulty": "easy"
+  },
+  {
+    "type": "logic",
+    "prompt": "一个三角形有几条边？",
+    "expected_answer": "3",
+    "keywords": [
+      "3",
+      "三"
+    ],
+    "difficulty": "easy"
+  },
+  {
+    "type": "logic",
+    "prompt": "一个正方形有几个角？",
+    "expected_answer": "4",
+    "keywords": [
+      "4",
+      "四"
+    ],
+    "difficulty": "easy"
+  },
+  {
+    "type": "logic",
+    "prompt": "今天是周三，后天是周几？",
+    "expected_answer": "周五",
+    "keywords": [
+      "五",
+      "5"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "type": "logic",
+    "prompt": "今天是周日，3天前是周几？",
+    "expected_answer": "周四",
+    "keywords": [
+      "四",
+      "4"
+    ],
+    "difficulty": "medium"
+  },
+  {
+    "type": "logic",
+    "prompt": "小明有10颗糖，给了小红3颗，还剩几颗？",
+    "expected_answer": "7",
+    "difficulty": "easy"
+  },
+  {
+    "type": "logic",
+    "prompt": "一个班有30人，其中女生18人，男生有几人？",
+    "expected_answer": "12",
+    "difficulty": "easy"
+  },
+  {
+    "type": "logic",
+    "prompt": "一打鸡蛋有多少个？",
+    "expected_answer": "12",
+    "difficulty": "easy"
+  },
+  {
+    "type": "logic",
+    "prompt": "3的4次方是多少？",
+    "expected_answer": "81",
     "difficulty": "medium"
   }
 ]

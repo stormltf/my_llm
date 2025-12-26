@@ -465,7 +465,7 @@ class GPT(nn.Module):
                 logits[logits < v[:, [-1]]] = float('-inf')
 
             # Top-p (nucleus) 采样
-            if top_p < 1.0:
+            if top_p is not None and top_p < 1.0:
                 sorted_logits, sorted_indices = torch.sort(logits, descending=True)
                 cumulative_probs = torch.cumsum(F.softmax(sorted_logits, dim=-1), dim=-1)
 

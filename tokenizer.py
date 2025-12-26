@@ -224,38 +224,57 @@ class BPETokenizer:
 
         return word_tokens
 
-    def encode(self, text: str) -> List[int]:
+    def encode(self, text: str, return_tensors: Optional[str] = None) -> List[int]:
         """
         将文本编码为token ID序列
 
         Args:
             text: 输入文本
+            return_tensors: 返回格式，"pt" 返回 PyTorch tensor，None 返回列表
 
         Returns:
-            token ID列表
+            token ID列表或 PyTorch tensor
         """
         if not text:
-            return []
+            token_ids = []
+        else:
+            token_ids = []
 
-        token_ids = []
+            # 首先处理特殊 token，将它们替换为占位符
+            special_token_map = {}
+            processed_text = text
+            for special_token, token_id in self.special_tokens.items():
+                if special_token in processed_text:
+                    placeholder = f"\x00{token_id}\x00"
+                    special_token_map[placeholder] = token_id
+                    processed_text = processed_text.replace(special_token, f" {placeholder} ")
 
-        # 按空格分词，然后对每个词应用BPE
-        for word in text.split():
-            # 应用BPE分词
-            bpe_tokens = self._apply_bpe(word)
+            # 按空格分词，然后对每个词应用BPE
+            for word in processed_text.split():
+                # 检查是否是特殊 token 占位符
+                if word in special_token_map:
+                    token_ids.append(special_token_map[word])
+                    continue
 
-            # 将每个token转换为ID
-            for token in bpe_tokens:
-                if token in self.vocab:
-                    token_ids.append(self.vocab[token])
-                else:
-                    # 处理未知token：尝试拆分为字符
-                    for char in token:
-                        if char in self.vocab:
-                            token_ids.append(self.vocab[char])
-                        else:
-                            token_ids.append(self.unk_token_id)
+                # 应用BPE分词
+                bpe_tokens = self._apply_bpe(word)
 
+                # 将每个token转换为ID
+                for token in bpe_tokens:
+                    if token in self.vocab:
+                        token_ids.append(self.vocab[token])
+                    else:
+                        # 处理未知token：尝试拆分为字符
+                        for char in token:
+                            if char in self.vocab:
+                                token_ids.append(self.vocab[char])
+                            else:
+                                token_ids.append(self.unk_token_id)
+
+        # 根据 return_tensors 参数返回不同格式
+        if return_tensors == "pt":
+            import torch
+            return torch.tensor([token_ids])  # 添加 batch 维度
         return token_ids
 
     def decode(self, token_ids: List[int]) -> str:
@@ -263,11 +282,15 @@ class BPETokenizer:
         将token ID序列解码回文本
 
         Args:
-            token_ids: token ID列表
+            token_ids: token ID列表或PyTorch tensor
 
         Returns:
             解码后的文本
         """
+        # 处理 PyTorch tensor
+        if hasattr(token_ids, 'tolist'):
+            token_ids = token_ids.tolist()
+
         tokens = []
         for token_id in token_ids:
             if token_id in self.inverse_vocab:
