@@ -1,0 +1,249 @@
+[
+  {
+    "type": "math",
+    "prompt": "计算：1+1=?",
+    "expected_answer": "2",
+    "difficulty": "easy"
+  },
+  {
+    "type": "math",
+    "prompt": "计算：2+3=?",
+    "expected_answer": "5",
+    "difficulty": "easy"
+  },
+  {
+    "type": "math",
+    "prompt": "计算：5+7=?",
+    "expected_answer": "12",
+    "difficulty": "easy"
+  },
+  {
+    "type": "math",
+    "prompt": "计算：10-4=?",
+    "expected_answer": "6",
+    "difficulty": "easy"
+  },
+  {
+    "type": "math",
+    "prompt": "计算：15-8=?",
+    "expected_answer": "7",
+    "difficulty": "easy"
+  },
+  {
+    "type": "math",
+    "prompt": "计算：3×4=?",
+    "expected_answer": "12",
+    "difficulty": "easy"
+  },
+  {
+    "type": "math",
+    "prompt": "计算：6×7=?",
+    "expected_answer": "42",
+    "difficulty": "easy"
+  },
+  {
+    "type": "math",
+    "prompt": "计算：8×9=?",
+    "expected_answer": "72",
+    "difficulty": "easy"
+  },
+  {
+    "type": "math",
+    "prompt": "计算：20÷4=?",
+    "expected_answer": "5",
+    "difficulty": "easy"
+  },
+  {
+    "type": "math",
+    "prompt": "计算：36÷6=?",
+    "expected_answer": "6",
+    "difficulty": "easy"
+  },
+  {
+    "type": "math",
+    "prompt": "计算：25+17=?",
+    "expected_answer": "42",
+    "difficulty": "medium"
+  },
+  {
+    "type": "math",
+    "prompt": "计算：100-37=?",
+    "expected_answer": "63",
+    "difficulty": "medium"
+  },
+  {
+    "type": "math",
+    "prompt": "计算：12×5=?",
+    "expected_answer": "60",
+    "difficulty": "medium"
+  },
+  {
+    "type": "math",
+    "prompt": "计算：144÷12=?",
+    "expected_answer": "12",
+    "difficulty": "medium"
+  },
+  {
+    "type": "math",
+    "prompt": "计算：3的平方是多少？",
+    "expected_answer": "9",
+    "difficulty": "medium"
+  },
+  {
+    "type": "math",
+    "prompt": "计算：5的平方是多少？",
+    "expected_answer": "25",
+    "difficulty": "medium"
+  },
+  {
+    "type": "math",
+    "prompt": "计算：2+3×4=?",
+    "expected_answer": "14",
+    "difficulty": "medium"
+  },
+  {
+    "type": "math",
+    "prompt": "计算：(2+3)×4=?",
+    "expected_answer": "20",
+    "difficulty": "medium"
+  },
+  {
+    "type": "math",
+    "prompt": "计算：10+20+30=?",
+    "expected_answer": "60",
+    "difficulty": "medium"
+  },
+  {
+    "type": "math",
+    "prompt": "计算：100÷5÷2=?",
+    "expected_answer": "10",
+    "difficulty": "medium"
+  },
+  {
+    "type": "logic",
+    "prompt": "如果所有猫都是动物，所有动物都会呼吸，那么猫会呼吸吗？",
+    "expected_answer": "是",
+    "keywords": ["是", "会", "正确", "对"],
+    "difficulty": "easy"
+  },
+  {
+    "type": "logic",
+    "prompt": "如果A比B高，B比C高，那么A比C高吗？",
+    "expected_answer": "是",
+    "keywords": ["是", "高", "正确", "对"],
+    "difficulty": "easy"
+  },
+  {
+    "type": "logic",
+    "prompt": "如果下雨地面就会湿，现在地面是干的，那么刚才下雨了吗？",
+    "expected_answer": "没有",
+    "keywords": ["没", "不", "否"],
+    "difficulty": "medium"
+  },
+  {
+    "type": "logic",
+    "prompt": "小明有3个苹果，小红比小明多2个苹果，小红有几个苹果？",
+    "expected_answer": "5",
+    "difficulty": "easy"
+  },
+  {
+    "type": "logic",
+    "prompt": "一个房间有4个角，每个角有1只猫，每只猫面前有3只猫，房间里一共有几只猫？",
+    "expected_answer": "4",
+    "difficulty": "medium"
+  },
+  {
+    "type": "logic",
+    "prompt": "一只蜗牛从井底往上爬，井深10米，蜗牛白天爬3米，晚上滑下2米，几天能爬出井？",
+    "expected_answer": "8",
+    "difficulty": "hard"
+  },
+  {
+    "type": "logic",
+    "prompt": "今天是星期一，再过3天是星期几？",
+    "expected_answer": "星期四",
+    "keywords": ["四", "4"],
+    "difficulty": "easy"
+  },
+  {
+    "type": "logic",
+    "prompt": "如果1=5，2=25，3=125，4=625，那么5=?",
+    "expected_answer": "1",
+    "difficulty": "hard"
+  },
+  {
+    "type": "logic",
+    "prompt": "三个人三天挖三个坑，九个人九天挖几个坑？",
+    "expected_answer": "27",
+    "difficulty": "medium"
+  },
+  {
+    "type": "logic",
+    "prompt": "一个农夫有17只羊，除了9只以外都跑了，还剩几只羊？",
+    "expected_answer": "9",
+    "difficulty": "easy"
+  },
+  {
+    "type": "logic",
+    "prompt": "小明的爸爸有3个儿子，大儿子叫大明，二儿子叫二明，三儿子叫什么？",
+    "expected_answer": "小明",
+    "keywords": ["小明"],
+    "difficulty": "easy"
+  },
+  {
+    "type": "logic",
+    "prompt": "一个数加上5等于8，这个数是多少？",
+    "expected_answer": "3",
+    "difficulty": "easy"
+  },
+  {
+    "type": "logic",
+    "prompt": "如果A是B的父亲，B是C的父亲，那么A是C的什么？",
+    "expected_answer": "爷爷",
+    "keywords": ["爷爷", "祖父"],
+    "difficulty": "easy"
+  },
+  {
+    "type": "logic",
+    "prompt": "一打铅笔有多少支？",
+    "expected_answer": "12",
+    "difficulty": "easy"
+  },
+  {
+    "type": "logic",
+    "prompt": "一年有多少个月？",
+    "expected_answer": "12",
+    "difficulty": "easy"
+  },
+  {
+    "type": "logic",
+    "prompt": "一周有多少天？",
+    "expected_answer": "7",
+    "difficulty": "easy"
+  },
+  {
+    "type": "logic",
+    "prompt": "一小时有多少分钟？",
+    "expected_answer": "60",
+    "difficulty": "easy"
+  },
+  {
+    "type": "logic",
+    "prompt": "如果今天是12月31日，明天是几月几日？",
+    "expected_answer": "1月1日",
+    "keywords": ["1月1", "一月一"],
+    "difficulty": "easy"
+  },
+  {
+    "type": "logic",
+    "prompt": "2的3次方是多少？",
+    "expected_answer": "8",
+    "difficulty": "medium"
+  },
+  {
+    "type": "logic",
+    "prompt": "10的2次方是多少？",
+    "expected_answer": "100",
+    "difficulty": "medium"
+  }
+]
