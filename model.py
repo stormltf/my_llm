@@ -431,7 +431,8 @@ class GPT(nn.Module):
         temperature: float = 1.0,
         top_k: int = 0,
         top_p: float = 1.0,
-        eos_token_id: int = None
+        eos_token_id: int = None,
+        repetition_penalty: float = 1.2
     ) -> torch.Tensor:
         """
         自回归文本生成
@@ -443,6 +444,7 @@ class GPT(nn.Module):
             top_k: 只从概率最高的 k 个 token 中采样
             top_p: 只从累积概率达到 p 的 token 中采样
             eos_token_id: 结束 token ID，遇到时停止生成
+            repetition_penalty: 重复惩罚系数，>1.0 降低已生成 token 的概率
 
         Returns:
             生成的完整序列，形状 [batch_size, seq_len + new_tokens]
@@ -458,6 +460,15 @@ class GPT(nn.Module):
 
             # 取最后一个位置的 logits
             logits = logits[:, -1, :] / temperature
+
+            # 应用重复惩罚
+            if repetition_penalty != 1.0:
+                for i in range(idx.size(0)):
+                    for token_id in set(idx[i].tolist()):
+                        if logits[i, token_id] > 0:
+                            logits[i, token_id] /= repetition_penalty
+                        else:
+                            logits[i, token_id] *= repetition_penalty
 
             # Top-k 采样
             if top_k > 0:

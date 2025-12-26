@@ -77,7 +77,7 @@ class PretrainDataset(Dataset):
 
 
 class SFTDataset(Dataset):
-    """SFT 数据集"""
+    """SFT 数据集 - 只对 assistant 部分计算 loss"""
 
     def __init__(self, data: List[Dict], tokenizer: BPETokenizer, max_length: int = 256):
         self.tokenizer = tokenizer
@@ -86,21 +86,36 @@ class SFTDataset(Dataset):
 
         print("正在处理 SFT 数据...")
         for item in tqdm(data, desc="处理对话"):
-            # 构造 ChatML 格式
-            text = f"<|im_start|>user\n{item['user']}<|im_end|>\n<|im_start|>assistant\n{item['assistant']}<|im_end|>"
-            token_ids = tokenizer.encode(text)
+            # 分别编码用户和助手部分，以便创建 loss mask
+            user_part = f"<|im_start|>user\n{item['user']}<|im_end|>\n<|im_start|>assistant\n"
+            assistant_part = f"{item['assistant']}<|im_end|>"
+
+            user_ids = tokenizer.encode(user_part)
+            assistant_ids = tokenizer.encode(assistant_part)
+
+            # 完整序列
+            token_ids = user_ids + assistant_ids
 
             # 截断
             if len(token_ids) > max_length:
                 token_ids = token_ids[:max_length]
+                # 重新计算 user 部分长度（用于 mask）
+                user_len = min(len(user_ids), max_length - 1)
+            else:
+                user_len = len(user_ids)
 
             # 构造输入和目标（自回归）
             if len(token_ids) > 1:
                 input_ids = token_ids[:-1]
                 target_ids = token_ids[1:]
+
+                # 创建 loss mask：只对 assistant 部分计算 loss
+                # user 部分的 target 设为 -1（会被 loss 函数忽略）
+                loss_mask = [-1] * (user_len - 1) + target_ids[user_len - 1:]
+
                 self.samples.append({
                     'input_ids': input_ids,
-                    'target_ids': target_ids
+                    'target_ids': loss_mask  # 使用带 mask 的 target
                 })
 
         print(f"SFT 数据集大小: {len(self.samples)}")
@@ -276,6 +291,7 @@ def train_sft(
     阶段 2：监督微调 (SFT)
 
     目标：学习对话格式，获得指令遵循能力
+    包含早停机制防止过拟合
     """
     print("\n" + "=" * 60)
     print("阶段 2：监督微调 (SFT)")
@@ -305,6 +321,12 @@ def train_sft(
     history = {'loss': []}
     model.train()
 
+    # 早停参数
+    best_loss = float('inf')
+    patience = 5  # 连续 5 个 epoch 没有改善就停止
+    patience_counter = 0
+    min_loss_threshold = 0.1  # loss 低于此值时开始监控过拟合
+
     for epoch in range(config.sft_epochs):
         total_loss = 0
         progress_bar = tqdm(dataloader, desc=f"SFT Epoch {epoch + 1}/{config.sft_epochs}")
@@ -326,6 +348,27 @@ def train_sft(
         avg_loss = total_loss / len(dataloader)
         history['loss'].append(avg_loss)
         print(f"Epoch {epoch + 1} - Loss: {avg_loss:.4f}")
+
+        # 早停检查（当 loss 足够低时开始监控）
+        if avg_loss < min_loss_threshold:
+            if avg_loss < best_loss - 0.01:  # 需要明显改善
+                best_loss = avg_loss
+                patience_counter = 0
+                # 保存最佳模型
+                best_path = os.path.join(config.checkpoint_dir, "sft_best.pt")
+                torch.save(model.state_dict(), best_path)
+            else:
+                patience_counter += 1
+                print(f"  ⚠️ Loss 改善不明显 ({patience_counter}/{patience})")
+
+            if patience_counter >= patience:
+                print(f"\n🛑 早停触发！连续 {patience} 个 epoch 没有明显改善")
+                print(f"   最佳 Loss: {best_loss:.4f}")
+                # 加载最佳模型
+                best_path = os.path.join(config.checkpoint_dir, "sft_best.pt")
+                if os.path.exists(best_path):
+                    model.load_state_dict(torch.load(best_path, map_location=device, weights_only=True))
+                break
 
     # 保存模型
     save_path = os.path.join(config.checkpoint_dir, "sft_final.pt")
@@ -552,8 +595,8 @@ def main():
     parser.add_argument("--pretrain_epochs", type=int, default=10, help="预训练轮数")
     parser.add_argument("--pretrain_lr", type=float, default=3e-4, help="预训练学习率")
 
-    # SFT 参数 (增加轮次以更好地学习对话格式)
-    parser.add_argument("--sft_epochs", type=int, default=100, help="SFT 训练轮数")
+    # SFT 参数 (注意：epoch 过多会导致过拟合！)
+    parser.add_argument("--sft_epochs", type=int, default=20, help="SFT 训练轮数（建议 15-30）")
     parser.add_argument("--sft_lr", type=float, default=5e-5, help="SFT 学习率")
 
     # 奖励模型参数 (增加轮次以更好地学习偏好)

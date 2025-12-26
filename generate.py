@@ -53,6 +53,7 @@ class TextGenerator:
         top_k: int = 0,
         top_p: float = 1.0,
         eos_token_id: int = None,
+        repetition_penalty: float = 1.2,
         show_progress: bool = False
     ) -> str:
         """
@@ -68,6 +69,7 @@ class TextGenerator:
             top_k: Top-k 采样，0 表示不使用
             top_p: Top-p (nucleus) 采样，1.0 表示不使用
             eos_token_id: 结束 token ID，遇到则停止
+            repetition_penalty: 重复惩罚系数，>1.0 降低已生成 token 的概率
             show_progress: 是否显示生成进度
 
         Returns:
@@ -104,6 +106,14 @@ class TextGenerator:
 
             # 3. 应用温度
             logits = logits / temperature
+
+            # 3.5 应用重复惩罚
+            if repetition_penalty != 1.0:
+                for token_id in set(generated):
+                    if logits[token_id] > 0:
+                        logits[token_id] /= repetition_penalty
+                    else:
+                        logits[token_id] *= repetition_penalty
 
             # 4. Top-k 过滤
             if top_k > 0:

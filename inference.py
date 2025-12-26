@@ -113,6 +113,7 @@ class MyLLMChat:
         temperature: float = 0.8,
         top_k: int = 50,
         top_p: Optional[float] = None,
+        repetition_penalty: float = 1.2,
         show_input: bool = True
     ) -> str:
         """
@@ -124,6 +125,7 @@ class MyLLMChat:
             temperature: 温度参数
             top_k: Top-k 采样参数
             top_p: Top-p 采样参数（可选）
+            repetition_penalty: 重复惩罚系数
             show_input: 是否在输出中包含输入
 
         返回：
@@ -142,7 +144,8 @@ class MyLLMChat:
                 temperature=temperature,
                 top_k=top_k,
                 top_p=top_p,
-                eos_token_id=self.tokenizer.eos_token_id
+                eos_token_id=self.tokenizer.eos_token_id,
+                repetition_penalty=repetition_penalty
             )
 
         if not show_input:
@@ -153,6 +156,9 @@ class MyLLMChat:
             # 解码全部
             generated_text = self.tokenizer.decode(output_ids[0])
 
+        # 移除重复内容
+        generated_text = self._remove_repetition(generated_text)
+
         return generated_text
 
     def _remove_repetition(self, text: str) -> str:
@@ -162,9 +168,12 @@ class MyLLMChat:
         检测并移除文本中的重复部分，保留第一次出现的完整内容
         使用多种策略：
         1. 检测杂乱内容标记
-        2. N-gram 重复检测
-        3. 句子级重复检测
+        2. 检测字符级重复（如 aaa, assistant重复变体）
+        3. N-gram 重复检测
+        4. 句子级重复检测
         """
+        import re
+
         if len(text) < 10:
             return text
 
@@ -173,13 +182,14 @@ class MyLLMChat:
         noise_markers = [
             "我的均值", "然后标准化", "我的。建议", "希望我的反馈",
             "我是常用的", "4. 。", "我的加速", "我的编程助手。我的",
-            "我的。", "基础知识。我的"
+            "我的。", "基础知识。我的", "asistant", "aassistant",
+            "ssistant", "assistantant"
         ]
         # 找到所有 marker 中位置最早的一个
         earliest_pos = len(text)
         for marker in noise_markers:
-            if marker in text:
-                pos = text.find(marker)
+            if marker in text.lower():
+                pos = text.lower().find(marker)
                 if pos < earliest_pos:
                     earliest_pos = pos
 
@@ -190,6 +200,23 @@ class MyLLMChat:
             cut_pos = max(last_period, last_exclaim)
             if cut_pos > 10:
                 return text[:cut_pos + 1]
+
+        # 策略0.5：检测字符级重复（如连续相同字符 aaa, 或者碎片如 ali）
+        # 检测连续相同字符超过3个
+        char_repeat = re.search(r'(.)\1{3,}', text)
+        if char_repeat:
+            cut_pos = char_repeat.start()
+            last_period = text[:cut_pos].rfind('。')
+            if last_period > 10:
+                return text[:last_period + 1]
+
+        # 检测短碎片模式（2-3个无意义字符的重复）
+        fragment_pattern = re.search(r'([a-zA-Z]{1,3})\1{2,}', text)
+        if fragment_pattern:
+            cut_pos = fragment_pattern.start()
+            last_period = text[:cut_pos].rfind('。')
+            if last_period > 10:
+                return text[:last_period + 1]
 
         # 策略1：检测 N-gram 重复（滑动窗口）
         # 如果一个短语（4-8个字）重复出现，在第二次出现时截断
