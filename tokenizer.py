@@ -701,7 +701,7 @@ def demo_tokenizer():
 
     # 保存分词器
     print("\n" + "=" * 50)
-    tokenizer.save("~/Downloads/go/src/github.com/my_llm/data/tokenizer.json")
+    tokenizer.save("./tokenizer.json")
 
 
 if __name__ == "__main__":
