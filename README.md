@@ -16,6 +16,68 @@
 
 ---
 
+## 📖 学习路径引导 (For 新人)
+
+作为大语言模型的学习项目，建议按照以下顺序学习，由浅入深逐步掌握：
+
+### 阶段 1：基础准备 (1-2 天)
+- **学习目标**：理解 LLM 的基本概念和项目结构
+- **阅读文件**：
+  1. `README.md` - 完整阅读，了解项目全貌
+  2. `tokenizer.py` - 学习 BPE 分词原理
+  3. `config.py` - 了解模型和训练的配置参数
+- **实验**：
+  ```bash
+  # 运行分词器测试，观察结果
+  python -m pytest tests/test_tokenizer.py -v
+  ```
+
+### 阶段 2：模型架构 (2-3 天)
+- **学习目标**：掌握 Transformer 架构的核心原理
+- **阅读文件**：
+  1. `model.py` - 从 LayerNorm → FeedForward → CausalSelfAttention → TransformerBlock → GPT 顺序阅读
+  2. 重点理解 `CausalSelfAttention` 类的实现
+- **实验**：
+  ```bash
+  # 运行模型架构测试
+  python -m pytest tests/test_model.py -v
+  ```
+
+### 阶段 3：训练流程 (3-5 天)
+- **学习目标**：理解大语言模型的训练流程
+- **阅读文件**：
+  1. `train.py` - 重点阅读 Pretrain 和 SFT 部分
+- **实验**：
+  ```bash
+  # 运行完整训练流程（约 30 分钟）
+  python train.py
+  ```
+
+### 阶段 4：强化学习阶段 (2-3 天)
+- **学习目标**：理解 RLHF/RLVF 的工作原理
+- **阅读文件**：
+  1. `reward_model.py` - 奖励模型实现
+  2. `rlhf.py` - PPO 算法实现
+  3. `rlvf.py` - 可验证反馈实现
+- **实验**：
+  ```bash
+  # 只运行强化学习阶段的训练
+  python train.py --skip-pretrain --skip-sft --skip-reward
+  ```
+
+### 阶段 5：高级功能 (2-3 天)
+- **学习目标**：掌握 LoRA 高效微调等高级功能
+- **阅读文件**：
+  1. `lora.py` - LoRA 实现原理
+  2. `train_lora.py` - LoRA 训练脚本
+- **实验**：
+  ```bash
+  # 运行 LoRA 微调
+  python train_lora.py
+  ```
+
+---
+
 ## 快速开始
 
 ### 环境要求
@@ -793,6 +855,87 @@ checkpoints/lora/
 - "Proximal Policy Optimization Algorithms" - PPO 论文
 - "LoRA: Low-Rank Adaptation of Large Language Models" - LoRA 论文
 - "Constitutional AI" - Anthropic
+
+## 📚 术语表
+
+这里整理了项目中出现的所有专业术语，帮助新人理解：
+
+### 1. LLM (Large Language Model)
+大语言模型，能够理解和生成人类语言的人工智能模型。
+
+### 2. Transformer
+现代 LLM 的核心架构，基于自注意力机制。
+
+### 3. BPE (Byte Pair Encoding)
+字节对编码，一种高效的子词分词算法。
+
+### 4. Pretrain (Pre-training)
+预训练，在大量无标注文本上训练模型，学习语言规律。
+
+### 5. SFT (Supervised Fine-Tuning)
+监督微调，在人工标注的对话数据上训练模型，获得指令遵循能力。
+
+### 6. Reward Model
+奖励模型，学习人类偏好，能够给回答打分。
+
+### 7. RLHF (Reinforcement Learning from Human Feedback)
+基于人类反馈的强化学习，利用奖励模型指导策略优化。
+
+### 8. RLVF (Reinforcement Learning with Verified Feedback)
+基于可验证反馈的强化学习，利用自动验证的正确答案作为奖励信号。
+
+### 9. PPO (Proximal Policy Optimization)
+近端策略优化，一种稳定的强化学习算法。
+
+### 10. LoRA (Low-Rank Adaptation)
+低秩适应，一种高效的模型微调方法。
+
+### 11. Self-Attention
+自注意力机制，让模型学会"关注"输入中的相关部分。
+
+### 12. Causal Mask
+因果遮罩，确保模型只能看到之前的词，无法看到未来的词。
+
+## ❓ 常见问题解答 (FAQ)
+
+这里整理了新人学习过程中可能遇到的问题和解决方案：
+
+### 1. 安装依赖时遇到问题？
+**解决方案**：
+- 确保使用 Python 3.8+ 版本
+- 使用虚拟环境安装：
+  ```bash
+  python3 -m venv venv
+  source venv/bin/activate  # Linux/macOS
+  venv\Scripts\activate      # Windows
+  pip install -r requirements.txt
+  ```
+
+### 2. 训练时内存不足？
+**解决方案**：
+- 降低 batch_size 参数：`python train.py --batch_size 8`
+- 使用 CPU 训练（默认就是 CPU）
+- 关闭其他占用内存的程序
+
+### 3. 训练速度太慢？
+**解决方案**：
+- 减少训练轮数：`python train.py --pretrain_epochs 5`
+- 使用更小的数据集：修改 `train.py` 中的数据加载部分
+- 如果有 GPU，可以安装 PyTorch GPU 版本加速训练
+
+### 4. 生成的文本质量不好？
+**解决方案**：
+- 增加训练轮数
+- 使用更大的模型配置：修改 `config.py` 中的超参数
+- 调整生成参数：提高 temperature 增加多样性，调整 top_k/top_p
+
+### 5. 遇到 CUDA 相关的错误？
+**解决方案**：
+- 检查 PyTorch 是否安装了 GPU 版本
+- 确保 CUDA 版本与 PyTorch 兼容
+- 切换到 CPU 训练：`python train.py --device cpu`
+
+---
 
 ### 许可证
 
