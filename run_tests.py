@@ -79,7 +79,7 @@ def run_tests(args):
         return 1
 
     # 构建 pytest 命令
-    cmd = ['python', '-m', 'pytest']
+    cmd = [sys.executable, '-m', 'pytest']
 
     # 测试目录
     test_dir = Path(__file__).parent / 'tests'
